@@ -8,32 +8,32 @@ export default async function handler(req, res) {
   const userMessage = req.body.message || "Mit főzzek ma?";
 
   try {
-    // Visszatérünk a legstabilabb URL-re és modell névre
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // 1. A modell nevének pontosítása: gemini-1.5-flash-latest
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        // 2. Rendszerutasítás (systemInstruction) a hivatalos v1beta 1.5 formátumban
+        systemInstruction: {
+          parts: [{ text: "Te egy profi magyar háztartásvezető és séf AI vagy. A felhasználó kamrájában lévő alapanyagok, fogyasztási statisztikák és a saját mentett receptjei alapján válaszolj. Válaszaid legyenek kedvesek, hasznosak, és használj szép Markdown formázást (vastagítás, áttekinthető listák)!" }]
+        },
         contents: [{ 
           parts: [{ text: userMessage }] 
-        }],
-        // JAVÍTÁS: Itt kötelező a snake_case (system_instruction)
-        system_instruction: {
-          parts: [{ text: "Te egy profi magyar háztartásvezető és séf AI vagy. A felhasználó kamrájában lévő alapanyagok, fogyasztási statisztikák és a saját mentett receptjei alapján válaszolj. Válaszaid legyenek kedvesek, hasznosak, és használj szép Markdown formázást (vastagítás, áttekinthető listák)!" }]
-        }
+        }]
       })
     });
 
     const data = await response.json();
     
-    // Ha a Google hibát dob, azt itt látni fogjuk
+    // Hibakezelés és naplózás a Vercel logokhoz
     if (data.error) {
        console.error("Google API Részletes Hiba:", JSON.stringify(data.error, null, 2));
        return res.status(200).json({ reply: `Google API Hiba: ${data.error.message}` });
     }
     
-    // Ellenőrizzük, hogy van-e érvényes válasz
+    // Biztonsági ellenőrzés a válasz tartalmára
     if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
         return res.status(200).json({ reply: "Sajnos az AI most nem tudott válaszolni. Kérlek, próbáld újra pár másodperc múlva!" });
     }
