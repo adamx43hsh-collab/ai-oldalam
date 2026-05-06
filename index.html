@@ -25,7 +25,7 @@
         <span class="text-sm font-bold tracking-tight">Felhő mentés...</span>
     </div>
 
-    <!-- Navigáció (Kibővítve + Swipeolható mobilon) -->
+    <!-- Navigáció -->
     <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
         <div class="hidden md:flex items-center gap-3 mb-10 px-2 py-4 border-b border-slate-100 shrink-0">
             <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
@@ -235,7 +235,6 @@
                 </div>
                 <button onclick="addRecipe()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-md active:scale-[0.98]">Mentés az Étlapra</button>
             </div>
-
             <div id="recipes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
         </section>
 
@@ -346,20 +345,20 @@
         const todayForStats = new Date();
         document.getElementById('stats-month').value = todayForStats.toISOString().slice(0, 7);
 
-        // --- FETCH WITH RETRY (AI Túlterhelés esetére: 2 mp várakozás) ---
+        // --- FETCH WITH RETRY (AI / Vercel Túlterhelés esetére: 2 mp várakozás) ---
         async function fetchWithRetry(url, options, retries = 5) {
             let lastError;
             for (let i = 0; i < retries; i++) {
                 try {
                     const res = await fetch(url, options);
+                    if (!res.ok) throw new Error(`Hálózati hiba: ${res.status}`);
                     const data = await res.json();
-                    if (data.error || res.status === 429 || res.status === 503 || (data.reply && data.reply.includes("high demand"))) {
-                         throw new Error("High demand");
-                    }
+                    if (data && data._error) throw new Error(data.üzenet || "Szerver hiba");
+                    if (data && data.reply && data.reply.toLowerCase().includes("high demand")) throw new Error("High demand");
                     return data;
                 } catch (e) {
                     lastError = e;
-                    console.warn(`Hiba, újrapróbálkozás 2 másodperc múlva... (${i+1}/${retries})`);
+                    console.warn(`Hiba, újrapróbálkozás 2 másodperc múlva... (${i+1}/${retries}): ${e.message}`);
                     if (i === retries - 1) throw lastError;
                     await new Promise(r => setTimeout(r, 2000));
                 }
@@ -372,11 +371,6 @@
             try {
                 const data = await fetchWithRetry('/api/db', { method: 'GET' }, 3);
                 
-                if (data && data._error) {
-                    document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">${data.üzenet}</span>`;
-                    return;
-                }
-
                 if (Array.isArray(data)) {
                     dbData.inventory = data;
                 } else if (data && typeof data === 'object') {
@@ -392,7 +386,7 @@
                 renderRecipes();
                 renderStats();
             } catch (e) {
-                document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold">Hiba a felhő csatlakozásakor!</span>`;
+                document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold">Nem sikerült kapcsolódni az adatbázishoz. (${e.message})</span>`;
             } finally {
                 loadingBadge.classList.remove('active');
             }
@@ -405,13 +399,13 @@
             renderRecipes();
             renderStats();
             try {
-                await fetch('/api/db', {
+                await fetchWithRetry('/api/db', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ items: dbData })
-                });
+                }, 3);
             } catch (e) {
-                console.error("Hiba mentéskor");
+                console.error("Hiba mentéskor", e);
             } finally {
                 loadingBadge.classList.remove('active');
             }
@@ -1003,6 +997,141 @@ Használj Markdown formázást!`;
             el.classList.toggle('hidden');
         };
 
+        function renderShoppingList() {
+            const pending = dbData.shoppingList.filter(i => i.status === 'pending');
+            const waiting = dbData.shoppingList.filter(i => i.status === 'waiting');
+            const done = dbData.shoppingList.filter(i => i.status === 'done');
+            
+            let html = '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Megvásárolandó</h3>';
+            html += pending.map(i => `
+                <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl mb-2 shadow-sm hover:border-indigo-200 transition-colors">
+                    <div class="flex items-center gap-4">
+                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Leltárba tesz)"><i data-lucide="circle" class="w-7 h-7"></i></button>
+                        <div>
+                            <div class="font-bold text-slate-700 text-lg leading-tight">${i.name} <span class="text-indigo-500 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                            <div class="text-[10px] text-indigo-400 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button onclick="setShoppingStatus('${i.id}', 'waiting')" class="p-2 text-amber-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all" title="Nem volt a boltban (Várólista)"><i data-lucide="clock" class="w-5 h-5"></i></button>
+                        <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                        <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>`).join('') || '<div class="text-sm text-slate-400 italic px-2">Nincs megvásárolandó tétel.</div>';
+
+            if (waiting.length) {
+                html += '<h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mt-10 mb-4 px-1">Hiánycikk (Várólista)</h3>';
+                html += waiting.map(i => `
+                    <div class="flex items-center justify-between p-4 bg-amber-50/50 border border-amber-100 rounded-2xl mb-2 shadow-sm hover:border-amber-200 transition-colors">
+                        <div class="flex items-center gap-4 opacity-75">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-amber-400 hover:text-amber-600 transition-colors" title="Újra listára teszem"><i data-lucide="rotate-ccw" class="w-6 h-6"></i></button>
+                            <div>
+                                <div class="font-bold text-amber-900 text-lg leading-tight">${i.name} <span class="text-amber-600 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                                <div class="text-[10px] text-amber-600 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="setShoppingStatus('${i.id}', 'done')" class="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Sikerült megvenni"><i data-lucide="check-circle-2" class="w-5 h-5"></i></button>
+                            <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                            <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-amber-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>`).join('');
+            }
+
+            if (done.length) {
+                html += '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-10 mb-4 px-1">Már a kosárban</h3>';
+                html += done.map(i => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl mb-1 opacity-60">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
+                            <div class="line-through text-slate-500 font-medium">${i.name}</div>
+                        </div>
+                        <button onclick="removeShoppingItem('${i.id}')" class="text-slate-300 hover:text-rose-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+            }
+            shoppingListContainer.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        window.changeQty = (id, delta) => {
+            const item = dbData.inventory.find(i => i.id === id);
+            const nQ = Math.max(0, (Number(item.quantity) || 1) + delta);
+            const diff = (Number(item.quantity) || 1) - nQ;
+            
+            item.quantity = nQ;
+            item.status = nQ === 0 ? 'consumed' : 'active';
+            if (nQ === 0) item.consumedAt = new Date().toISOString();
+            
+            if (diff > 0) logConsumption(item.brand || "Nincs", item.name, diff);
+            else saveItems();
+        };
+        
+        window.deleteItem = (id) => {
+            dbData.inventory = dbData.inventory.filter(i => i.id !== id);
+            saveItems();
+        };
+        
+        window.switchTab = (id) => {
+            tabContents.forEach(t => t.classList.add('hidden'));
+            document.getElementById(`tab-${id}`).classList.remove('hidden');
+            navButtons.forEach(b => {
+                const active = b.dataset.tab === id;
+                b.className = `nav-btn flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`;
+            });
+            if(id === 'recipes') renderRecipes();
+            if(id === 'stats') renderStats();
+        };
+
+        navButtons.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+        aiPromptInput.addEventListener('keydown', e => { if(e.key === 'Enter') handleChefQuery(); });
+
+        window.bulkImportMaster = () => {
+            const modal = document.getElementById('import-modal');
+            document.getElementById('import-textarea').value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeImportModal = () => {
+            const modal = document.getElementById('import-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.executeBulkImport = () => {
+            const raw = document.getElementById('import-textarea').value;
+            if (!raw.trim()) return closeImportModal();
+            const lines = raw.split('\n').filter(l => l.includes(';'));
+            let count = 0;
+            for (let line of lines) {
+                const parts = line.split(';').map(s => s.trim());
+                if(parts.length < 2) continue;
+                dbData.masterItems.push({ id: generateId(), brand: parts[0] || "Ismeretlen", name: parts[1] || "Névtelen", weight: parts[2] || "-" });
+                count++;
+            }
+            saveItems();
+            closeImportModal();
+            handleShoppingSearch();
+            alert(`${count} termék sikeresen hozzáadva az adatbázishoz!`);
+        };
+
+        window.addNewMasterItem = (initialName) => {
+            currentShoppingItem = null; 
+            document.getElementById('sqm-name').value = initialName || '';
+            document.getElementById('sqm-brand').value = 'Saját';
+            document.getElementById('sqm-weight').value = '-';
+            document.getElementById('sqm-expiry').value = '';
+            document.getElementById('sqm-req').value = 1;
+            document.getElementById('sqm-home').value = 0;
+            document.getElementById('sqm-current-home').innerText = '0';
+            
+            const modal = document.getElementById('shopping-qty-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            searchInput.value = ''; searchResults.innerHTML = '';
+        };
+
         window.parseBtnClick = () => {
             const text = parseInput.value;
             const lines = text.split('\n').filter(l => l.trim());
@@ -1045,6 +1174,7 @@ Használj Markdown formázást!`;
 
         document.getElementById('parse-btn').onclick = parseBtnClick;
         
+        // Indítás
         loadItems();
     </script>
 </body>
