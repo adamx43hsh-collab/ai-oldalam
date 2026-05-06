@@ -7,909 +7,6 @@
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = JSON.parse(window.__firebase_config || '{}');
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'okos-kamra-default';
-
-        let items = [];
-        let masterItems = [];
-        let shoppingList = [];
-        let recipes = [];
-        let consumptionList = []; // ÚJ: Fogyasztási napló
-        let user = null;
-        let isAiLoading = false;
-        let currentShoppingItem = null; 
-        let currentEditShoppingId = null; 
-        const apiKey = "";
-
-        const loadingBadge = document.getElementById('db-loading');
-        const inventoryGrid = document.getElementById('inventory-grid');
-        const inventoryCount = document.getElementById('inventory-count');
-        const searchInput = document.getElementById('shopping-search');
-        const searchResults = document.getElementById('shopping-search-results');
-        const shoppingListContainer = document.getElementById('shopping-list-container');
-        const aiPromptInput = document.getElementById('ai-prompt');
-        const chefResponseContainer = document.getElementById('chef-response-container');
-        const parseInput = document.getElementById('parse-input');
-        const navButtons = document.querySelectorAll('.nav-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        // Alapértelmezett hónap beállítása a statisztikához
-        const todayForStats = new Date();
-        document.getElementById('stats-month').value = todayForStats.toISOString().slice(0, 7);
-
-        const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-        };
-
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            if (user) setupRealtimeUpdates();
-        });
-
-        function setupRealtimeUpdates() {
-            if (!user) return;
-            const dataCol = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
-            const masterCol = collection(db, 'artifacts', appId, 'public', 'data', 'masterItems');
-            const shoppingCol = collection(db, 'artifacts', appId, 'public', 'data', 'shoppingList');
-            const recipesCol = collection(db, 'artifacts', appId, 'public', 'data', 'recipes');
-            const consumptionCol = collection(db, 'artifacts', appId, 'public', 'data', 'consumption');
-            
-            onSnapshot(dataCol, (snapshot) => {
-                items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                cleanupAndRender();
-            });
-
-            onSnapshot(masterCol, (snapshot) => {
-                masterItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            });
-
-            onSnapshot(shoppingCol, (snapshot) => {
-                shoppingList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderShoppingList();
-            });
-
-            onSnapshot(recipesCol, (snapshot) => {
-                recipes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderRecipes();
-            });
-
-            onSnapshot(consumptionCol, (snapshot) => {
-                consumptionList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (!document.getElementById('tab-stats').classList.contains('hidden')) {
-                    renderStats();
-                }
-            });
-        }
-
-        // --- ÚJ: FOGYASZTÁS NAPLÓZÁSA ---
-        window.logConsumption = async (brand, name, quantity) => {
-            const today = new Date();
-            const dateStr = today.toISOString().split('T')[0];
-            const monthStr = dateStr.slice(0, 7); // Pl. "2026-05"
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'consumption'), {
-                brand, name, quantity, date: dateStr, month: monthStr, timestamp: today.toISOString()
-            });
-        };
-
-        // --- GEMINI AI SÉF ---
-        async function callGemini(prompt) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            for (let i = 0; i < 5; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }],
-                            systemInstruction: { parts: [{ text: "Te egy profi magyar séf vagy. A felhasználó kamrájában lévő alapanyagok és a saját mentett receptjei alapján adj receptötleteket. Használj Markdown formázást (vastagítás, listák), legyen nagyon guszta és áttekinthető." }] }
-                        })
-                    });
-                    const data = await response.json();
-                    if (data.error) throw new Error(data.error.message);
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text;
-                } catch (e) {
-                    if (i === 4) throw e;
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-            }
-        }
-
-        window.handleChefQuery = async () => {
-            if (isAiLoading) return;
-            const prompt = aiPromptInput.value.trim();
-            isAiLoading = true;
-            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja...</div>`;
-            
-            const activeItems = items.filter(i => i.status === 'active');
-            const inv = activeItems.map(i => `- ${i.brand} ${i.name} (${i.quantity}db)`).join('\n');
-            const myRecipes = recipes.length > 0 ? recipes.map(r => `- ${r.name} (Hozzávalók: ${r.ingredients})`).join('\n') : "Még nincsenek saját mentett receptek.";
-            
-            const fullPrompt = `Kamra Készlet:\n${inv}\n\nMentett Receptjeim (ezekből is javasolhatsz a készlet alapján):\n${myRecipes}\n\nKérés: ${prompt || "Mit főzzek ma?"}`;
-            
-            try {
-                const reply = await callGemini(fullPrompt);
-                chefResponseContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border prose prose-indigo max-w-none shadow-sm">${marked.parse(reply)}</div>`;
-            } catch (e) {
-                chefResponseContainer.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">Hiba történt. Próbáld újra!</div>`;
-            } finally {
-                isAiLoading = false;
-                aiPromptInput.value = '';
-            }
-        };
-
-        // --- ÚJ: AI BEVÁSÁRLÓLISTA AJÁNLÓ ---
-        window.handleAiShoppingRecommendation = async () => {
-            if (isAiLoading) return;
-            const container = document.getElementById('ai-shopping-response-container');
-            container.classList.remove('hidden');
-            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI elemzi a fogyasztási szokásaidat és a készletedet...</div>`;
-            isAiLoading = true;
-
-            // Aktuális készlet összesítése
-            const activeItems = items.filter(i => i.status === 'active');
-            const invMap = {};
-            activeItems.forEach(i => {
-                const key = `${i.brand}:::${i.name}`;
-                invMap[key] = (invMap[key] || 0) + Number(i.quantity);
-            });
-            const invText = Object.entries(invMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: ${v} db`).join('\n') || "A kamra teljesen üres.";
-
-            // Fogyasztás összesítése
-            const consMap = {};
-            consumptionList.forEach(c => {
-                const key = `${c.brand}:::${c.name}`;
-                if (!consMap[key]) consMap[key] = { total: 0 };
-                consMap[key].total += Number(c.quantity);
-            });
-            const consText = Object.entries(consMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: összesen ${v.total} db fogyott eddig`).join('\n') || "Még nincs rögzített fogyasztás.";
-
-            const prompt = `Te egy profi háztartásvezető AI vagy.
-Jelenlegi kamra készlet:
-${invText}
-
-Eddigi fogyasztási statisztika:
-${consText}
-
-Készíts egy intelligens bevásárlólistát! 
-- Elemezd a különbséget aközött, hogy mi fogyott sokat, és miből van jelenleg kevés (vagy egyáltalán nincs) a kamrában.
-- Javasolj konkrét termékeket és darabszámokat.
-- Röviden indokold meg a javaslatokat (pl. "mert a statisztika alapján gyorsan fogy").
-Használj Markdown formázást (listákat, vastagítást), legyen nagyon guszta és áttekinthető!`;
-
-            try {
-                const reply = await callGemini(prompt);
-                container.innerHTML = `<div class="bg-white p-6 rounded-2xl border border-indigo-100 prose prose-indigo max-w-none shadow-sm text-sm">${marked.parse(reply)}</div>`;
-            } catch (e) {
-                container.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">Hiba történt az ajánlás generálása közben. Próbáld újra kicsit később.</div>`;
-            } finally {
-                isAiLoading = false;
-            }
-        };
-
-        // --- BEVÁSÁRLÓLISTA ÉS MESTER ADATBÁZIS ---
-        window.handleShoppingSearch = () => {
-            const query = searchInput.value.toLowerCase().trim();
-            if (!query) { searchResults.innerHTML = ''; return; }
-            const results = masterItems.filter(i => (i.name && i.name.toLowerCase().includes(query)) || (i.brand && i.brand.toLowerCase().includes(query))).slice(0, 5);
-            
-            searchResults.innerHTML = results.length ? results.map(i => `
-                <div onclick="openShoppingQtyModal('${i.id}')" class="p-4 border-b border-slate-50 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors">
-                    <div>
-                        <span class="font-bold text-slate-700">${i.name}</span> 
-                        <span class="text-[10px] text-slate-400 font-bold uppercase ml-2">${i.brand} (${i.weight})</span>
-                    </div>
-                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
-                </div>`).join('') : `<div class="p-6 text-center text-slate-500 text-sm">Nincs ilyen termék. <button onclick="addNewMasterItem('${query}')" class="text-indigo-600 font-bold underline">Új felvétele</button></div>`;
-            lucide.createIcons();
-        };
-
-        window.openShoppingQtyModal = (mId) => {
-            currentShoppingItem = masterItems.find(i => i.id === mId);
-            if(!currentShoppingItem) return;
-            
-            const activeMatches = items.filter(i => i.status === 'active' && i.brand === currentShoppingItem.brand && i.name === currentShoppingItem.name);
-            const currentCount = activeMatches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
-            
-            document.getElementById('sqm-name').value = currentShoppingItem.name;
-            document.getElementById('sqm-brand').value = currentShoppingItem.brand || '';
-            document.getElementById('sqm-weight').value = currentShoppingItem.weight || '-';
-            document.getElementById('sqm-expiry').value = currentShoppingItem.expiryDays || ''; 
-            document.getElementById('sqm-req').value = 1;
-            document.getElementById('sqm-home').value = 0; 
-            
-            document.getElementById('sqm-current-home').innerText = currentCount; 
-            
-            const modal = document.getElementById('shopping-qty-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeShoppingQtyModal = () => {
-            const modal = document.getElementById('shopping-qty-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            currentShoppingItem = null;
-        };
-
-        window.confirmShoppingAdd = async () => {
-            const name = document.getElementById('sqm-name').value.trim();
-            const brand = document.getElementById('sqm-brand').value.trim() || 'Nincs';
-            const weight = document.getElementById('sqm-weight').value.trim() || '-';
-            const expiryDaysRaw = document.getElementById('sqm-expiry').value.trim();
-            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
-            const reqQty = parseInt(document.getElementById('sqm-req').value) || 1;
-            const homeQty = parseInt(document.getElementById('sqm-home').value) || 0;
-
-            if(!name) { alert("A név megadása kötelező!"); return; }
-
-            loadingBadge.classList.add('active');
-            
-            const existingMaster = masterItems.find(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
-            if (!existingMaster) {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'masterItems'), { brand, name, weight, expiryDays });
-            } else {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'masterItems', existingMaster.id), { weight, expiryDays });
-            }
-
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'shoppingList'), { 
-                name, brand, weight, expiryDays,
-                requiredQuantity: reqQty,
-                status: 'pending', 
-                addedAt: new Date().toISOString() 
-            });
-
-            await syncInventoryCount(brand, name, homeQty);
-            
-            loadingBadge.classList.remove('active');
-            closeShoppingQtyModal();
-            searchInput.value = ''; searchResults.innerHTML = '';
-        };
-
-        window.openShoppingEditModal = (id) => {
-            const item = shoppingList.find(i => i.id === id);
-            if(!item) return;
-            currentEditShoppingId = id;
-            
-            document.getElementById('sem-name').value = item.name;
-            document.getElementById('sem-brand').value = item.brand || '';
-            document.getElementById('sem-weight').value = item.weight || '-';
-            document.getElementById('sem-expiry').value = item.expiryDays || '';
-            document.getElementById('sem-req').value = item.requiredQuantity || 1;
-            
-            const modal = document.getElementById('shopping-edit-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeShoppingEditModal = () => {
-            const modal = document.getElementById('shopping-edit-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            currentEditShoppingId = null;
-        };
-
-        window.confirmShoppingEdit = async () => {
-            if(!currentEditShoppingId) return;
-            const name = document.getElementById('sem-name').value.trim();
-            const brand = document.getElementById('sem-brand').value.trim() || 'Nincs';
-            const weight = document.getElementById('sem-weight').value.trim() || '-';
-            const expiryDaysRaw = document.getElementById('sem-expiry').value.trim();
-            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
-            const reqQty = parseInt(document.getElementById('sem-req').value) || 1;
-
-            if(!name) { alert("A név megadása kötelező!"); return; }
-
-            loadingBadge.classList.add('active');
-            
-            const existingMaster = masterItems.find(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
-            if (!existingMaster) {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'masterItems'), { brand, name, weight, expiryDays });
-            } else {
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'masterItems', existingMaster.id), { weight, expiryDays });
-            }
-
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shoppingList', currentEditShoppingId), {
-                name, brand, weight, expiryDays, requiredQuantity: reqQty
-            });
-            loadingBadge.classList.remove('active');
-            closeShoppingEditModal();
-        };
-
-        window.syncInventoryCount = async (brand, name, targetQty) => {
-            const b = (brand || '').toLowerCase().trim();
-            const n = (name || '').toLowerCase().trim();
-            let matches = items.filter(i => i.status === 'active' && (i.brand || '').toLowerCase().trim() === b && (i.name || '').toLowerCase().trim() === n);
-            let currentTotal = matches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
-
-            if (currentTotal === targetQty) return;
-
-            if (currentTotal < targetQty) {
-                const diff = targetQty - currentTotal;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), {
-                    brand: brand || "Nincs",
-                    name: name,
-                    quantity: diff,
-                    initialQuantity: diff,
-                    expiryDate: "-", 
-                    status: 'active',
-                    addedAt: new Date().toISOString()
-                });
-            } else {
-                let diff = currentTotal - targetQty;
-                
-                // Mivel hiányzott, ez azt jelenti, hogy elfogyasztottuk!
-                await logConsumption(brand || "Nincs", name, diff);
-
-                matches.sort((a, b) => {
-                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
-                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
-                    return dateA - dateB;
-                });
-
-                for (let item of matches) {
-                    if (diff <= 0) break;
-                    let itemQty = Number(item.quantity) || 0;
-                    if (itemQty <= diff) {
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id), {
-                            quantity: 0, status: 'consumed', consumedAt: new Date().toISOString()
-                        });
-                        diff -= itemQty;
-                    } else {
-                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id), {
-                            quantity: itemQty - diff
-                        });
-                        diff = 0;
-                    }
-                }
-            }
-        };
-
-        window.setShoppingStatus = async (id, newStatus) => {
-            const item = shoppingList.find(i => i.id === id);
-            if (!item) return;
-
-            const updates = { status: newStatus };
-
-            if (newStatus === 'done' && !item.addedToInventory) {
-                updates.addedToInventory = true;
-                
-                let expDateStr = "-"; 
-                if (item.expiryDays !== undefined && item.expiryDays !== "" && !isNaN(parseInt(item.expiryDays))) {
-                    const days = parseInt(item.expiryDays);
-                    const expDate = new Date();
-                    expDate.setDate(expDate.getDate() + days);
-                    expDateStr = expDate.toISOString().split('T')[0];
-                }
-
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), {
-                    brand: item.brand || "Ismeretlen",
-                    name: item.name,
-                    quantity: item.requiredQuantity || 1,
-                    initialQuantity: item.requiredQuantity || 1,
-                    expiryDate: expDateStr,
-                    status: 'active',
-                    addedAt: new Date().toISOString()
-                });
-            }
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shoppingList', id), updates);
-        };
-
-        window.removeShoppingItem = async (id) => {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shoppingList', id));
-        };
-
-        // --- SAJÁT ÉTELEK / RECEPTEK ---
-        window.addRecipe = async () => {
-            const name = document.getElementById('new-recipe-name').value.trim();
-            const ingredients = document.getElementById('new-recipe-ingredients').value.trim();
-            if(!name || !ingredients) {
-                alert('Az étel neve és a hozzávalók megadása kötelező!');
-                return;
-            }
-            loadingBadge.classList.add('active');
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'recipes'), {
-                name, ingredients, addedAt: new Date().toISOString()
-            });
-            document.getElementById('new-recipe-name').value = '';
-            document.getElementById('new-recipe-ingredients').value = '';
-            loadingBadge.classList.remove('active');
-        };
-
-        window.deleteRecipe = async (id) => {
-            if(!confirm('Biztosan törlöd ezt az ételt a listádról?')) return;
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recipes', id));
-        };
-
-        window.renderRecipes = () => {
-            const query = (document.getElementById('recipe-search')?.value || '').toLowerCase().trim();
-            const grid = document.getElementById('recipes-grid');
-            if(!grid) return;
-
-            const filtered = recipes.filter(r => r.name.toLowerCase().includes(query) || r.ingredients.toLowerCase().includes(query));
-
-            grid.innerHTML = filtered.map(r => `
-                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-slate-800 text-lg leading-tight pr-4">${r.name}</h4>
-                        <button onclick="deleteRecipe('${r.id}')" class="text-rose-300 hover:text-rose-500 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors flex-shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </div>
-                    <div class="mt-2 flex-1">
-                        <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Hozzávalók & Mennyiségek</p>
-                        <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${r.ingredients}</p>
-                    </div>
-                </div>
-            `).join('') || '<div class="col-span-full text-center text-slate-400 py-10 font-medium border-2 border-dashed border-slate-200 rounded-3xl">Nincs találat, vagy még nem mentettél el ételt.</div>';
-            lucide.createIcons();
-        };
-
-        // --- ÚJ: STATISZTIKA RENDERELÉSE ---
-        window.renderStats = () => {
-            const tbody = document.getElementById('stats-tbody');
-            if (!tbody) return;
-
-            const selectedMonth = document.getElementById('stats-month').value || new Date().toISOString().slice(0, 7);
-            
-            const today = new Date();
-            const currentMonthStr = today.toISOString().slice(0, 7);
-            let daysElapsed = 1;
-
-            if (selectedMonth === currentMonthStr) {
-                daysElapsed = today.getDate(); // Ha a jelenlegi hónap, akkor a mai napig eltelt napok
-            } else {
-                const [y, m] = selectedMonth.split('-');
-                daysElapsed = new Date(y, m, 0).getDate(); // Egyébként a hónap teljes hossza
-            }
-
-            // Csak a kiválasztott hónap fogyasztásai
-            const monthlyData = consumptionList.filter(c => c.month === selectedMonth);
-
-            // Összesítés márka és név alapján
-            const grouped = {};
-            monthlyData.forEach(c => {
-                const key = `${c.brand}:::${c.name}`;
-                if (!grouped[key]) grouped[key] = { brand: c.brand, name: c.name, total: 0 };
-                grouped[key].total += Number(c.quantity);
-            });
-
-            // Rendezés a legtöbbet fogyasztott alapján
-            const statsArray = Object.values(grouped).sort((a, b) => b.total - a.total);
-
-            if (statsArray.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-12 text-slate-400 font-medium">Nincs rögzített fogyasztás ebben a hónapban. <br><span class="text-xs">Tipp: A rendszer akkor naplóz, ha csökkented a készletet a mínusz gombbal.</span></td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = statsArray.map(stat => {
-                const perDay = (stat.total / daysElapsed).toFixed(2);
-                const daysPerOne = stat.total > 0 ? (daysElapsed / stat.total).toFixed(1) : '-';
-                
-                return `
-                <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td class="p-5">
-                        <div class="font-bold text-slate-700 text-base">${stat.name}</div>
-                        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">${stat.brand}</div>
-                    </td>
-                    <td class="p-5 text-center">
-                        <span class="font-black text-2xl text-emerald-500">${stat.total} <span class="text-sm font-medium text-slate-400">db</span></span>
-                    </td>
-                    <td class="p-5 text-center">
-                        <div class="font-bold text-slate-700 bg-white shadow-sm border border-slate-100 rounded-lg py-1 px-3 inline-block">${perDay} <span class="text-[10px] text-slate-400 uppercase tracking-widest">db/nap</span></div>
-                        <div class="text-[10px] text-slate-400 font-medium mt-1">Vagy: 1 db / ${daysPerOne} nap</div>
-                    </td>
-                </tr>
-                `;
-            }).join('');
-        };
-
-        window.changeStatsMonth = () => {
-            renderStats();
-        };
-
-        // --- RENDERELÉS ÉS LEJÁRAT KEZELÉS ---
-        let isCleaning = false;
-        async function cleanupAndRender() {
-            if (isCleaning) return;
-            isCleaning = true;
-            const todayStr = new Date().toISOString().split('T')[0];
-            const todayDate = new Date(todayStr);
-
-            for (let item of items) {
-                if (item.status !== 'active') continue;
-                if (item.expiryDate && item.expiryDate !== "-") {
-                    const expDate = new Date(item.expiryDate);
-                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
-                    
-                    if (diffDays >= 10) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', item.id));
-                    }
-                }
-            }
-            isCleaning = false;
-            window.renderInventoryAndExpired();
-        }
-
-        window.renderInventoryAndExpired = () => {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const todayDate = new Date(todayStr);
-            const activeItems = [];
-            const expiredItems = [];
-
-            items.forEach(item => {
-                if (item.status !== 'active') return;
-                
-                if (item.expiryDate && item.expiryDate !== "-") {
-                    const expDate = new Date(item.expiryDate);
-                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
-
-                    if (item.expiryDate < todayStr) {
-                        item.daysExpired = diffDays;
-                        expiredItems.push(item);
-                    } else {
-                        activeItems.push(item);
-                    }
-                } else {
-                    activeItems.push(item);
-                }
-            });
-
-            renderInventoryList(activeItems);
-            renderExpiredList(expiredItems);
-        };
-
-        function renderInventoryList(activeItems) {
-            const query = document.getElementById('inventory-search')?.value.toLowerCase().trim() || '';
-            const filtered = activeItems.filter(i => (i.name || '').toLowerCase().includes(query) || (i.brand || '').toLowerCase().includes(query));
-
-            inventoryCount.innerText = `Összesen ${activeItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)} tétel a kamrában.`;
-            
-            const grouped = {};
-            filtered.forEach(item => {
-                const key = `${item.brand}:::${item.name}`;
-                if (!grouped[key]) grouped[key] = { brand: item.brand, name: item.name, total: 0, batches: [] };
-                grouped[key].total += Number(item.quantity);
-                grouped[key].batches.push(item);
-            });
-
-            Object.values(grouped).forEach(g => {
-                const expGroups = {};
-                g.batches.forEach(b => {
-                    const exp = b.expiryDate || "-";
-                    if (!expGroups[exp]) expGroups[exp] = { expiryDate: exp, quantity: 0, ids: [] };
-                    expGroups[exp].quantity += Number(b.quantity);
-                    expGroups[exp].ids.push(b.id);
-                });
-                g.mergedBatches = Object.values(expGroups).sort((a, b) => {
-                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
-                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
-                    return dateA - dateB;
-                });
-            });
-
-            inventoryGrid.innerHTML = Object.values(grouped).map((g, idx) => {
-                const allIds = g.batches.map(b => b.id).join(',');
-
-                return `
-                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">${g.brand}</span>
-                        <div class="flex gap-1">
-                            <button onclick="consumeEarliest('${allIds}')" class="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors" title="Legkorábban lejáróból 1 db fogyasztása">
-                                <i data-lucide="minus" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick="deleteAllGrouped('${allIds}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors" title="Teljes termék törlése a kamrából">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <h4 class="font-bold text-slate-800 text-lg mb-2">${g.name}</h4>
-                    <div class="mt-auto">
-                        <div class="flex items-center justify-between border-t border-slate-100 pt-3 cursor-pointer group select-none" onclick="toggleDetails('details-${idx}')">
-                            <span class="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl group-hover:bg-indigo-100 transition-colors">${g.total} db</span>
-                            <span class="text-[10px] text-slate-400 font-bold flex items-center gap-1 group-hover:text-indigo-500 transition-colors uppercase tracking-widest">
-                                Részletek <i data-lucide="chevron-down" class="w-3 h-3 group-hover:translate-y-0.5 transition-transform"></i>
-                            </span>
-                        </div>
-                        <div id="details-${idx}" class="hidden mt-3 space-y-2 border-t border-slate-50 pt-3">
-                            ${g.mergedBatches.map(b => {
-                                const expDisplay = b.expiryDate === "-" ? "Nincs lejárat" : b.expiryDate;
-                                const batchIds = b.ids.join(',');
-                                return `
-                                <div class="flex justify-between items-center text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                                    <span class="text-slate-500 font-medium flex items-center gap-1.5">
-                                        <i data-lucide="${b.expiryDate === "-" ? "package-check" : "calendar"}" class="w-3.5 h-3.5 text-slate-400"></i>${expDisplay}
-                                    </span>
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-bold text-slate-700 bg-white px-2 py-0.5 rounded shadow-sm">${b.quantity} db</span>
-                                        <button onclick="changeQty('${b.ids[0]}', -1)" class="text-slate-400 hover:text-indigo-600 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                                        <button onclick="deleteMerged('${batchIds}')" class="text-rose-300 hover:text-rose-500 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
-                                    </div>
-                                </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('') || '<div class="col-span-full py-12 text-center text-slate-400 font-medium">Nincs találat a keresésre, vagy a kamra üres.</div>';
-            lucide.createIcons();
-        }
-
-        window.deleteAllGrouped = async (idsStr) => {
-            if(!confirm("Biztosan törlöd az összeset ebből a termékből a kamrádból?")) return;
-            const ids = idsStr.split(',').filter(Boolean);
-            loadingBadge.classList.add('active');
-            for(let id of ids) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-            }
-            loadingBadge.classList.remove('active');
-        };
-
-        window.deleteMerged = async (idsStr) => {
-            const ids = idsStr.split(',').filter(Boolean);
-            loadingBadge.classList.add('active');
-            for (let id of ids) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-            }
-            loadingBadge.classList.remove('active');
-        };
-
-        window.consumeEarliest = async (idsStr) => {
-            const ids = idsStr.split(',').filter(Boolean);
-            let matches = items.filter(i => ids.includes(i.id) && i.status === 'active');
-            if(matches.length === 0) return;
-            
-            matches.sort((a, b) => {
-                const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
-                const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
-                return dateA - dateB;
-            });
-
-            const earliestItem = matches[0];
-            if (Number(earliestItem.quantity) > 0) {
-                const newQty = Number(earliestItem.quantity) - 1;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', earliestItem.id), {
-                    quantity: newQty,
-                    status: newQty === 0 ? 'consumed' : 'active',
-                    consumedAt: newQty === 0 ? new Date().toISOString() : null
-                });
-                
-                // Mínusz gomb megnyomásával elfogyasztottuk, tehát naplózzuk!
-                await logConsumption(earliestItem.brand || "Nincs", earliestItem.name, 1);
-            }
-        };
-
-        function renderExpiredList(expiredItems) {
-            const grid = document.getElementById('expired-grid');
-            const badge = document.getElementById('expired-badge');
-            
-            if(badge) badge.classList.toggle('hidden', expiredItems.length === 0);
-            if(!grid) return;
-
-            if (expiredItems.length === 0) {
-                grid.innerHTML = '<div class="col-span-full py-20 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 font-medium">Nincsenek lejárt termékek. Nagyszerű!</div>';
-                return;
-            }
-
-            grid.innerHTML = expiredItems.map(i => `
-                <div class="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm flex flex-col h-full">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-[10px] font-bold text-rose-500 uppercase tracking-wider">${i.brand}</span>
-                    </div>
-                    <h4 class="font-bold text-slate-800 text-lg mb-2">${i.name}</h4>
-                    <div class="mt-auto">
-                        <div class="flex items-center justify-between border-t border-rose-100 pt-3">
-                            <span class="text-sm font-bold bg-rose-100 text-rose-700 px-3 py-1 rounded-xl">${i.quantity} db</span>
-                            <span class="text-[10px] text-rose-500 font-bold flex items-center gap-1 uppercase tracking-widest">
-                                Lejárt: ${i.expiryDate}
-                            </span>
-                        </div>
-                        <p class="text-[10px] text-rose-400 mt-2 text-center font-medium">${Math.max(0, 10 - (i.daysExpired || 0))} nap múlva törlődik</p>
-                        <button onclick="deleteItem('${i.id}')" class="w-full mt-3 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-xl transition-colors shadow-sm">Kidobtam</button>
-                    </div>
-                </div>
-            `).join('');
-            lucide.createIcons();
-        }
-
-        window.toggleDetails = (id) => {
-            const el = document.getElementById(id);
-            el.classList.toggle('hidden');
-        };
-
-        function renderShoppingList() {
-            const pending = shoppingList.filter(i => i.status === 'pending');
-            const waiting = shoppingList.filter(i => i.status === 'waiting');
-            const done = shoppingList.filter(i => i.status === 'done');
-            
-            let html = '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Megvásárolandó</h3>';
-            html += pending.map(i => `
-                <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl mb-2 shadow-sm hover:border-indigo-200 transition-colors">
-                    <div class="flex items-center gap-4">
-                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Leltárba tesz)"><i data-lucide="circle" class="w-7 h-7"></i></button>
-                        <div>
-                            <div class="font-bold text-slate-700 text-lg leading-tight">${i.name} <span class="text-indigo-500 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
-                            <div class="text-[10px] text-indigo-400 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
-                        </div>
-                    </div>
-                    <div class="flex gap-1">
-                        <button onclick="setShoppingStatus('${i.id}', 'waiting')" class="p-2 text-amber-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all" title="Nem volt a boltban (Várólista)"><i data-lucide="clock" class="w-5 h-5"></i></button>
-                        <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
-                        <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                    </div>
-                </div>`).join('') || '<div class="text-sm text-slate-400 italic px-2">Nincs megvásárolandó tétel.</div>';
-
-            if (waiting.length) {
-                html += '<h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mt-10 mb-4 px-1">Hiánycikk (Várólista)</h3>';
-                html += waiting.map(i => `
-                    <div class="flex items-center justify-between p-4 bg-amber-50/50 border border-amber-100 rounded-2xl mb-2 shadow-sm hover:border-amber-200 transition-colors">
-                        <div class="flex items-center gap-4 opacity-75">
-                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-amber-400 hover:text-amber-600 transition-colors" title="Újra listára teszem"><i data-lucide="rotate-ccw" class="w-6 h-6"></i></button>
-                            <div>
-                                <div class="font-bold text-amber-900 text-lg leading-tight">${i.name} <span class="text-amber-600 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
-                                <div class="text-[10px] text-amber-600 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
-                            </div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button onclick="setShoppingStatus('${i.id}', 'done')" class="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Sikerült megvenni"><i data-lucide="check-circle-2" class="w-5 h-5"></i></button>
-                            <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
-                            <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-amber-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                        </div>
-                    </div>`).join('');
-            }
-
-            if (done.length) {
-                html += '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-10 mb-4 px-1">Már a kosárban</h3>';
-                html += done.map(i => `
-                    <div class="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl mb-1 opacity-60">
-                        <div class="flex items-center gap-3">
-                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
-                            <div class="line-through text-slate-500 font-medium">${i.name}</div>
-                        </div>
-                        <button onclick="removeShoppingItem('${i.id}')" class="text-slate-300 hover:text-rose-400"><i data-lucide="x" class="w-4 h-4"></i></button>
-                    </div>`).join('');
-            }
-            shoppingListContainer.innerHTML = html;
-            lucide.createIcons();
-        }
-
-        window.changeQty = async (id, delta) => {
-            const item = items.find(i => i.id === id);
-            const nQ = Math.max(0, (Number(item.quantity) || 1) + delta);
-            const diff = (Number(item.quantity) || 1) - nQ;
-            
-            await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id), { 
-                quantity: nQ, 
-                status: nQ === 0 ? 'consumed' : 'active',
-                consumedAt: nQ === 0 ? new Date().toISOString() : null
-            });
-            
-            // Ha a mínusz gombbal csökkentettük, az fogyasztásnak számít!
-            if (diff > 0) {
-                await logConsumption(item.brand || "Nincs", item.name, diff);
-            }
-        };
-        
-        window.deleteItem = async (id) => await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-        
-        window.switchTab = (id) => {
-            tabContents.forEach(t => t.classList.add('hidden'));
-            document.getElementById(`tab-${id}`).classList.remove('hidden');
-            navButtons.forEach(b => {
-                const active = b.dataset.tab === id;
-                b.className = `nav-btn flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`;
-            });
-            if(id === 'recipes') renderRecipes();
-            if(id === 'stats') renderStats(); // Érkezéskor frissítjük a statisztikát
-        };
-
-        navButtons.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
-        aiPromptInput.addEventListener('keydown', e => { if(e.key === 'Enter') handleChefQuery(); });
-
-        window.bulkImportMaster = () => {
-            const modal = document.getElementById('import-modal');
-            document.getElementById('import-textarea').value = '';
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeImportModal = () => {
-            const modal = document.getElementById('import-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        };
-
-        window.executeBulkImport = async () => {
-            const raw = document.getElementById('import-textarea').value;
-            if (!raw.trim()) return closeImportModal();
-            const lines = raw.split('\n').filter(l => l.includes(';'));
-            loadingBadge.classList.add('active');
-            closeImportModal();
-            let count = 0;
-            for (let line of lines) {
-                const parts = line.split(';').map(s => s.trim());
-                if(parts.length < 2) continue;
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'masterItems'), { 
-                    brand: parts[0] || "Ismeretlen", name: parts[1] || "Névtelen", weight: parts[2] || "-" 
-                });
-                count++;
-            }
-            loadingBadge.classList.remove('active');
-            handleShoppingSearch();
-            alert(`${count} termék sikeresen hozzáadva az adatbázishoz!`);
-        };
-
-        window.addNewMasterItem = (initialName) => {
-            currentShoppingItem = null; 
-            document.getElementById('sqm-name').value = initialName || '';
-            document.getElementById('sqm-brand').value = 'Saját';
-            document.getElementById('sqm-weight').value = '-';
-            document.getElementById('sqm-expiry').value = '';
-            document.getElementById('sqm-req').value = 1;
-            document.getElementById('sqm-home').value = 0;
-            document.getElementById('sqm-current-home').innerText = '0';
-            
-            const modal = document.getElementById('shopping-qty-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            
-            searchInput.value = ''; searchResults.innerHTML = '';
-        };
-
-        window.parseBtnClick = async () => {
-            const text = parseInput.value;
-            const lines = text.split('\n').filter(l => l.trim());
-            loadingBadge.classList.add('active');
-            for (let line of lines) {
-                const parts = line.split(',').map(p => p.trim());
-                const find = (k) => parts.find(p => p.toLowerCase().includes(k))?.split(':')[1]?.trim();
-                
-                const brand = find('márka') || "Nincs";
-                const name = find('név') || line.substring(0, 20);
-                const qty = parseInt(find('darab')) || 1;
-                const weight = find('tömeg') || find('súly') || "-";
-                
-                const expiryRaw = find('lejárat');
-                let expiryDate = "-";
-                if (expiryRaw) {
-                    if (expiryRaw.includes('nap')) {
-                        const days = parseInt(expiryRaw) || 14;
-                        const d = new Date();
-                        d.setDate(d.getDate() + days);
-                        expiryDate = d.toISOString().split('T')[0];
-                    } else {
-                        expiryDate = expiryRaw;
-                    }
-                }
-
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), {
-                    brand: brand, name: name, quantity: qty, initialQuantity: qty,
-                    expiryDate: expiryDate, status: 'active', addedAt: new Date().toISOString()
-                });
-
-                const existsInMaster = masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
-                if (!existsInMaster) {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'masterItems'), { brand, name, weight });
-                }
-            }
-            loadingBadge.classList.remove('active');
-            parseInput.value = '';
-            switchTab('inventory');
-        };
-
-        document.getElementById('parse-btn').onclick = parseBtnClick;
-        initAuth();
-    </script>
     <style>
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1166,7 +263,7 @@ Használj Markdown formázást (listákat, vastagítást), legyen nagyon guszta 
                 <p class="text-slate-500 font-semibold">Keresés a közös adatbázisban.</p>
             </header>
 
-            <!-- ÚJ: AI Ajánló Blokk -->
+            <!-- AI Ajánló Blokk -->
             <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 shadow-sm">
                 <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
                     <div>
@@ -1178,7 +275,6 @@ Használj Markdown formázást (listákat, vastagítást), legyen nagyon guszta 
                     </button>
                 </div>
                 <div id="ai-shopping-response-container" class="hidden mt-6 pt-6 border-t border-indigo-100/50">
-                    <!-- AI Válasz helye -->
                 </div>
             </div>
 
@@ -1213,5 +309,846 @@ Használj Markdown formázást (listákat, vastagítást), legyen nagyon guszta 
             </div>
         </section>
     </main>
+
+    <!-- SCRIPTEK A VERCEL / REDIS BACKENDHEZ (Tökéletesen használva a te /api hívásaidat!) -->
+    <script>
+        let dbData = {
+            inventory: [],
+            masterItems: [],
+            shoppingList: [],
+            recipes: [],
+            consumption: []
+        };
+        
+        let activeTab = 'inventory';
+        let isAiLoading = false;
+        let currentShoppingItem = null; 
+        let currentEditShoppingId = null;
+
+        const loadingBadge = document.getElementById('db-loading');
+        const inventoryGrid = document.getElementById('inventory-grid');
+        const inventoryCount = document.getElementById('inventory-count');
+        const searchInput = document.getElementById('shopping-search');
+        const searchResults = document.getElementById('shopping-search-results');
+        const shoppingListContainer = document.getElementById('shopping-list-container');
+        const aiPromptInput = document.getElementById('ai-prompt');
+        const chefResponseContainer = document.getElementById('chef-response-container');
+        const parseInput = document.getElementById('parse-input');
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        const todayForStats = new Date();
+        document.getElementById('stats-month').value = todayForStats.toISOString().slice(0, 7);
+
+        // --- ADATKEZELÉS (API) VERCEL REDIS-SZEL ---
+        async function loadItems() {
+            loadingBadge.classList.add('active');
+            try {
+                const res = await fetch('/api/db');
+                const data = await res.json();
+                
+                if (data && data._error) {
+                    document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold bg-rose-50 p-2 rounded-lg">${data.üzenet}</span>`;
+                    return;
+                }
+
+                // Kompatibilitás a régi (sima tömb) formátummal
+                if (Array.isArray(data)) {
+                    dbData.inventory = data;
+                } else if (data && typeof data === 'object') {
+                    dbData.inventory = data.inventory || [];
+                    dbData.masterItems = data.masterItems || [];
+                    dbData.shoppingList = data.shoppingList || [];
+                    dbData.recipes = data.recipes || [];
+                    dbData.consumption = data.consumption || [];
+                }
+                
+                cleanupAndRender();
+                renderShoppingList();
+                renderRecipes();
+                renderStats();
+            } catch (e) {
+                document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold">Hiba a felhő csatlakozásakor!</span>`;
+            } finally {
+                loadingBadge.classList.remove('active');
+            }
+        }
+
+        async function saveItems() {
+            loadingBadge.classList.add('active');
+            cleanupAndRender();
+            renderShoppingList();
+            renderRecipes();
+            renderStats();
+            try {
+                await fetch('/api/db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: dbData })
+                });
+            } catch (e) {
+                console.error("Hiba mentéskor");
+            } finally {
+                loadingBadge.classList.remove('active');
+            }
+        }
+
+        const generateId = () => Date.now().toString() + Math.random().toString(36).substring(2);
+
+        // --- AI API HÍVÁSOK ---
+        window.handleChefQuery = async () => {
+            if (isAiLoading) return;
+            const prompt = aiPromptInput.value.trim();
+            isAiLoading = true;
+            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja...</div>`;
+            
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const inv = activeItems.map(i => `- ${i.brand} ${i.name} (${i.quantity}db)`).join('\n');
+            const myRecipes = dbData.recipes.length > 0 ? dbData.recipes.map(r => `- ${r.name} (Hozzávalók: ${r.ingredients})`).join('\n') : "Még nincsenek saját mentett receptek.";
+            
+            const fullPrompt = `Kamra Készlet:\n${inv}\n\nMentett Receptjeim (ezekből is javasolhatsz a készlet alapján):\n${myRecipes}\n\nKérés: ${prompt || "Mit főzzek ma?"}`;
+            
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: fullPrompt })
+                });
+                const data = await res.json();
+                chefResponseContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border prose prose-indigo max-w-none shadow-sm">${marked.parse(data.reply)}</div>`;
+            } catch (e) {
+                chefResponseContainer.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">Hiba történt a Séf kapcsolatban.</div>`;
+            } finally {
+                isAiLoading = false;
+                aiPromptInput.value = '';
+            }
+        };
+
+        window.handleAiShoppingRecommendation = async () => {
+            if (isAiLoading) return;
+            const container = document.getElementById('ai-shopping-response-container');
+            container.classList.remove('hidden');
+            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI elemzi a fogyasztási szokásaidat és a készletedet...</div>`;
+            isAiLoading = true;
+
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const invMap = {};
+            activeItems.forEach(i => {
+                const key = `${i.brand}:::${i.name}`;
+                invMap[key] = (invMap[key] || 0) + Number(i.quantity);
+            });
+            const invText = Object.entries(invMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: ${v} db`).join('\n') || "A kamra teljesen üres.";
+
+            const consMap = {};
+            dbData.consumption.forEach(c => {
+                const key = `${c.brand}:::${c.name}`;
+                if (!consMap[key]) consMap[key] = { total: 0 };
+                consMap[key].total += Number(c.quantity);
+            });
+            const consText = Object.entries(consMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: összesen ${v.total} db fogyott eddig`).join('\n') || "Még nincs rögzített fogyasztás.";
+
+            const prompt = `Te egy profi háztartásvezető AI vagy.
+Jelenlegi kamra készlet:
+${invText}
+
+Eddigi fogyasztási statisztika:
+${consText}
+
+Készíts egy intelligens bevásárlólistát! 
+- Elemezd a különbséget aközött, hogy mi fogyott sokat, és miből van jelenleg kevés.
+- Javasolj konkrét termékeket és darabszámokat.
+- Röviden indokold meg a javaslatokat.
+Használj Markdown formázást!`;
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                });
+                const data = await res.json();
+                container.innerHTML = `<div class="bg-white p-6 rounded-2xl border border-indigo-100 prose prose-indigo max-w-none shadow-sm text-sm">${marked.parse(data.reply)}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">Hiba történt az ajánlás generálása közben.</div>`;
+            } finally {
+                isAiLoading = false;
+            }
+        };
+
+        // --- STATISZTIKA & NAPLÓZÁS ---
+        window.logConsumption = (brand, name, quantity) => {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const monthStr = dateStr.slice(0, 7);
+            dbData.consumption.push({ id: generateId(), brand, name, quantity, date: dateStr, month: monthStr, timestamp: today.toISOString() });
+            saveItems(); // Ezt azonnal mentjük a háttérben
+        };
+
+        window.renderStats = () => {
+            const tbody = document.getElementById('stats-tbody');
+            if (!tbody) return;
+
+            const selectedMonth = document.getElementById('stats-month').value || new Date().toISOString().slice(0, 7);
+            const today = new Date();
+            const currentMonthStr = today.toISOString().slice(0, 7);
+            let daysElapsed = selectedMonth === currentMonthStr ? today.getDate() : new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).getDate();
+
+            const monthlyData = dbData.consumption.filter(c => c.month === selectedMonth);
+            const grouped = {};
+            monthlyData.forEach(c => {
+                const key = `${c.brand}:::${c.name}`;
+                if (!grouped[key]) grouped[key] = { brand: c.brand, name: c.name, total: 0 };
+                grouped[key].total += Number(c.quantity);
+            });
+
+            const statsArray = Object.values(grouped).sort((a, b) => b.total - a.total);
+
+            if (statsArray.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-12 text-slate-400 font-medium">Nincs rögzített fogyasztás ebben a hónapban.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = statsArray.map(stat => {
+                const perDay = (stat.total / daysElapsed).toFixed(2);
+                const daysPerOne = stat.total > 0 ? (daysElapsed / stat.total).toFixed(1) : '-';
+                
+                return `
+                <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                    <td class="p-5">
+                        <div class="font-bold text-slate-700 text-base">${stat.name}</div>
+                        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">${stat.brand}</div>
+                    </td>
+                    <td class="p-5 text-center">
+                        <span class="font-black text-2xl text-emerald-500">${stat.total} <span class="text-sm font-medium text-slate-400">db</span></span>
+                    </td>
+                    <td class="p-5 text-center">
+                        <div class="font-bold text-slate-700 bg-white shadow-sm border border-slate-100 rounded-lg py-1 px-3 inline-block">${perDay} <span class="text-[10px] text-slate-400 uppercase tracking-widest">db/nap</span></div>
+                        <div class="text-[10px] text-slate-400 font-medium mt-1">Vagy: 1 db / ${daysPerOne} nap</div>
+                    </td>
+                </tr>`;
+            }).join('');
+        };
+
+        window.changeStatsMonth = () => renderStats();
+
+        // --- BEVÁSÁRLÓLISTA ÉS MESTER ADATBÁZIS ---
+        window.handleShoppingSearch = () => {
+            const query = searchInput.value.toLowerCase().trim();
+            if (!query) { searchResults.innerHTML = ''; return; }
+            const results = dbData.masterItems.filter(i => (i.name && i.name.toLowerCase().includes(query)) || (i.brand && i.brand.toLowerCase().includes(query))).slice(0, 5);
+            
+            searchResults.innerHTML = results.length ? results.map(i => `
+                <div onclick="openShoppingQtyModal('${i.id}')" class="p-4 border-b border-slate-50 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors">
+                    <div>
+                        <span class="font-bold text-slate-700">${i.name}</span> 
+                        <span class="text-[10px] text-slate-400 font-bold uppercase ml-2">${i.brand} (${i.weight})</span>
+                    </div>
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                </div>`).join('') : `<div class="p-6 text-center text-slate-500 text-sm">Nincs ilyen termék. <button onclick="addNewMasterItem('${query}')" class="text-indigo-600 font-bold underline">Új felvétele</button></div>`;
+            lucide.createIcons();
+        };
+
+        window.openShoppingQtyModal = (mId) => {
+            currentShoppingItem = dbData.masterItems.find(i => i.id === mId);
+            if(!currentShoppingItem) return;
+            
+            const activeMatches = dbData.inventory.filter(i => i.status === 'active' && i.brand === currentShoppingItem.brand && i.name === currentShoppingItem.name);
+            const currentCount = activeMatches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
+            
+            document.getElementById('sqm-name').value = currentShoppingItem.name;
+            document.getElementById('sqm-brand').value = currentShoppingItem.brand || '';
+            document.getElementById('sqm-weight').value = currentShoppingItem.weight || '-';
+            document.getElementById('sqm-expiry').value = currentShoppingItem.expiryDays || ''; 
+            document.getElementById('sqm-req').value = 1;
+            document.getElementById('sqm-home').value = 0; // ALAPÉRTELMEZETT 0
+            
+            document.getElementById('sqm-current-home').innerText = currentCount; 
+            
+            const modal = document.getElementById('shopping-qty-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeShoppingQtyModal = () => {
+            document.getElementById('shopping-qty-modal').classList.add('hidden');
+            document.getElementById('shopping-qty-modal').classList.remove('flex');
+            currentShoppingItem = null;
+        };
+
+        window.confirmShoppingAdd = () => {
+            const name = document.getElementById('sqm-name').value.trim();
+            const brand = document.getElementById('sqm-brand').value.trim() || 'Nincs';
+            const weight = document.getElementById('sqm-weight').value.trim() || '-';
+            const expiryDaysRaw = document.getElementById('sqm-expiry').value.trim();
+            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
+            const reqQty = parseInt(document.getElementById('sqm-req').value) || 1;
+            const homeQty = parseInt(document.getElementById('sqm-home').value) || 0;
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+
+            const existingMasterIdx = dbData.masterItems.findIndex(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
+            if (existingMasterIdx === -1) {
+                dbData.masterItems.push({ id: generateId(), brand, name, weight, expiryDays });
+            } else {
+                dbData.masterItems[existingMasterIdx].weight = weight;
+                dbData.masterItems[existingMasterIdx].expiryDays = expiryDays;
+            }
+
+            dbData.shoppingList.push({ 
+                id: generateId(), name, brand, weight, expiryDays,
+                requiredQuantity: reqQty, status: 'pending', addedAt: new Date().toISOString() 
+            });
+
+            syncInventoryCount(brand, name, homeQty); // Ez is elvégzi a mentést, ha szükséges
+            saveItems(); // Végső mentés
+            closeShoppingQtyModal();
+            searchInput.value = ''; searchResults.innerHTML = '';
+        };
+
+        window.openShoppingEditModal = (id) => {
+            const item = dbData.shoppingList.find(i => i.id === id);
+            if(!item) return;
+            currentEditShoppingId = id;
+            
+            document.getElementById('sem-name').value = item.name;
+            document.getElementById('sem-brand').value = item.brand || '';
+            document.getElementById('sem-weight').value = item.weight || '-';
+            document.getElementById('sem-expiry').value = item.expiryDays || '';
+            document.getElementById('sem-req').value = item.requiredQuantity || 1;
+            
+            const modal = document.getElementById('shopping-edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeShoppingEditModal = () => {
+            document.getElementById('shopping-edit-modal').classList.add('hidden');
+            document.getElementById('shopping-edit-modal').classList.remove('flex');
+            currentEditShoppingId = null;
+        };
+
+        window.confirmShoppingEdit = () => {
+            if(!currentEditShoppingId) return;
+            const name = document.getElementById('sem-name').value.trim();
+            const brand = document.getElementById('sem-brand').value.trim() || 'Nincs';
+            const weight = document.getElementById('sem-weight').value.trim() || '-';
+            const expiryDaysRaw = document.getElementById('sem-expiry').value.trim();
+            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
+            const reqQty = parseInt(document.getElementById('sem-req').value) || 1;
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+
+            const existingMasterIdx = dbData.masterItems.findIndex(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
+            if (existingMasterIdx === -1) {
+                dbData.masterItems.push({ id: generateId(), brand, name, weight, expiryDays });
+            } else {
+                dbData.masterItems[existingMasterIdx].weight = weight;
+                dbData.masterItems[existingMasterIdx].expiryDays = expiryDays;
+            }
+
+            const sIdx = dbData.shoppingList.findIndex(s => s.id === currentEditShoppingId);
+            if(sIdx > -1) {
+                dbData.shoppingList[sIdx] = { ...dbData.shoppingList[sIdx], name, brand, weight, expiryDays, requiredQuantity: reqQty };
+            }
+
+            saveItems();
+            closeShoppingEditModal();
+        };
+
+        window.syncInventoryCount = (brand, name, targetQty) => {
+            const b = (brand || '').toLowerCase().trim();
+            const n = (name || '').toLowerCase().trim();
+            let matches = dbData.inventory.filter(i => i.status === 'active' && (i.brand || '').toLowerCase().trim() === b && (i.name || '').toLowerCase().trim() === n);
+            let currentTotal = matches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
+
+            if (currentTotal === targetQty) return;
+
+            if (currentTotal < targetQty) {
+                const diff = targetQty - currentTotal;
+                dbData.inventory.push({
+                    id: generateId(), brand: brand || "Nincs", name: name,
+                    quantity: diff, initialQuantity: diff, expiryDate: "-", status: 'active', addedAt: new Date().toISOString()
+                });
+            } else {
+                let diff = currentTotal - targetQty;
+                
+                // Mivel hiányzott, ez azt jelenti, hogy elfogyasztottuk!
+                logConsumption(brand || "Nincs", name, diff);
+
+                matches.sort((a, b) => {
+                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                    return dateA - dateB;
+                });
+
+                for (let item of matches) {
+                    if (diff <= 0) break;
+                    let itemQty = Number(item.quantity) || 0;
+                    if (itemQty <= diff) {
+                        item.quantity = 0; item.status = 'consumed'; item.consumedAt = new Date().toISOString();
+                        diff -= itemQty;
+                    } else {
+                        item.quantity = itemQty - diff;
+                        diff = 0;
+                    }
+                }
+            }
+        };
+
+        window.setShoppingStatus = (id, newStatus) => {
+            const item = dbData.shoppingList.find(i => i.id === id);
+            if (!item) return;
+
+            item.status = newStatus;
+
+            // Ha most került kosárba és még nem adtuk a leltárhoz
+            if (newStatus === 'done' && !item.addedToInventory) {
+                item.addedToInventory = true;
+                
+                let expDateStr = "-"; 
+                if (item.expiryDays !== undefined && item.expiryDays !== "" && !isNaN(parseInt(item.expiryDays))) {
+                    const days = parseInt(item.expiryDays);
+                    const expDate = new Date();
+                    expDate.setDate(expDate.getDate() + days);
+                    expDateStr = expDate.toISOString().split('T')[0];
+                }
+
+                dbData.inventory.push({
+                    id: generateId(),
+                    brand: item.brand || "Ismeretlen", name: item.name,
+                    quantity: item.requiredQuantity || 1, initialQuantity: item.requiredQuantity || 1,
+                    expiryDate: expDateStr, status: 'active', addedAt: new Date().toISOString()
+                });
+            }
+            saveItems();
+        };
+
+        window.removeShoppingItem = (id) => {
+            dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
+            saveItems();
+        };
+
+        // --- SAJÁT ÉTELEK / RECEPTEK ---
+        window.addRecipe = () => {
+            const name = document.getElementById('new-recipe-name').value.trim();
+            const ingredients = document.getElementById('new-recipe-ingredients').value.trim();
+            if(!name || !ingredients) {
+                alert('Az étel neve és a hozzávalók megadása kötelező!');
+                return;
+            }
+            dbData.recipes.push({ id: generateId(), name, ingredients, addedAt: new Date().toISOString() });
+            document.getElementById('new-recipe-name').value = '';
+            document.getElementById('new-recipe-ingredients').value = '';
+            saveItems();
+        };
+
+        window.deleteRecipe = (id) => {
+            if(!confirm('Biztosan törlöd ezt az ételt a listádról?')) return;
+            dbData.recipes = dbData.recipes.filter(r => r.id !== id);
+            saveItems();
+        };
+
+        window.renderRecipes = () => {
+            const query = (document.getElementById('recipe-search')?.value || '').toLowerCase().trim();
+            const grid = document.getElementById('recipes-grid');
+            if(!grid) return;
+
+            const filtered = dbData.recipes.filter(r => r.name.toLowerCase().includes(query) || r.ingredients.toLowerCase().includes(query));
+
+            grid.innerHTML = filtered.map(r => `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-slate-800 text-lg leading-tight pr-4">${r.name}</h4>
+                        <button onclick="deleteRecipe('${r.id}')" class="text-rose-300 hover:text-rose-500 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors flex-shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="mt-2 flex-1">
+                        <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Hozzávalók & Mennyiségek</p>
+                        <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${r.ingredients}</p>
+                    </div>
+                </div>
+            `).join('') || '<div class="col-span-full text-center text-slate-400 py-10 font-medium border-2 border-dashed border-slate-200 rounded-3xl">Nincs találat, vagy még nem mentettél el ételt.</div>';
+            lucide.createIcons();
+        };
+
+        // --- RENDERELÉS ÉS LEJÁRAT KEZELÉS ---
+        function cleanupAndRender() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDate = new Date(todayStr);
+            
+            // Auto törlés 10 nap után
+            dbData.inventory = dbData.inventory.filter(item => {
+                if (item.status === 'active' && item.expiryDate && item.expiryDate !== "-") {
+                    const expDate = new Date(item.expiryDate);
+                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 10) return false; // Törli
+                }
+                return true;
+            });
+
+            window.renderInventoryAndExpired();
+        }
+
+        window.renderInventoryAndExpired = () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDate = new Date(todayStr);
+            const activeItems = [];
+            const expiredItems = [];
+
+            dbData.inventory.forEach(item => {
+                if (item.status !== 'active') return;
+                
+                if (item.expiryDate && item.expiryDate !== "-") {
+                    const expDate = new Date(item.expiryDate);
+                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                    if (item.expiryDate < todayStr) {
+                        item.daysExpired = diffDays;
+                        expiredItems.push(item);
+                    } else {
+                        activeItems.push(item);
+                    }
+                } else {
+                    activeItems.push(item);
+                }
+            });
+
+            renderInventoryList(activeItems);
+            renderExpiredList(expiredItems);
+        };
+
+        function renderInventoryList(activeItems) {
+            const query = document.getElementById('inventory-search')?.value.toLowerCase().trim() || '';
+            const filtered = activeItems.filter(i => (i.name || '').toLowerCase().includes(query) || (i.brand || '').toLowerCase().includes(query));
+
+            inventoryCount.innerText = `Összesen ${activeItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)} tétel a kamrában.`;
+            
+            const grouped = {};
+            filtered.forEach(item => {
+                const key = `${item.brand}:::${item.name}`;
+                if (!grouped[key]) grouped[key] = { brand: item.brand, name: item.name, total: 0, batches: [] };
+                grouped[key].total += Number(item.quantity);
+                grouped[key].batches.push(item);
+            });
+
+            Object.values(grouped).forEach(g => {
+                const expGroups = {};
+                g.batches.forEach(b => {
+                    const exp = b.expiryDate || "-";
+                    if (!expGroups[exp]) expGroups[exp] = { expiryDate: exp, quantity: 0, ids: [] };
+                    expGroups[exp].quantity += Number(b.quantity);
+                    expGroups[exp].ids.push(b.id);
+                });
+                g.mergedBatches = Object.values(expGroups).sort((a, b) => {
+                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                    return dateA - dateB;
+                });
+            });
+
+            inventoryGrid.innerHTML = Object.values(grouped).map((g, idx) => {
+                const allIds = g.batches.map(b => b.id).join(',');
+
+                return `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">${g.brand}</span>
+                        <div class="flex gap-1">
+                            <button onclick="consumeEarliest('${allIds}')" class="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors" title="Legkorábban lejáróból 1 db fogyasztása">
+                                <i data-lucide="minus" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteAllGrouped('${allIds}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors" title="Teljes termék törlése a kamrából">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-lg mb-2">${g.name}</h4>
+                    <div class="mt-auto">
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-3 cursor-pointer group select-none" onclick="toggleDetails('details-${idx}')">
+                            <span class="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl group-hover:bg-indigo-100 transition-colors">${g.total} db</span>
+                            <span class="text-[10px] text-slate-400 font-bold flex items-center gap-1 group-hover:text-indigo-500 transition-colors uppercase tracking-widest">
+                                Részletek <i data-lucide="chevron-down" class="w-3 h-3 group-hover:translate-y-0.5 transition-transform"></i>
+                            </span>
+                        </div>
+                        <div id="details-${idx}" class="hidden mt-3 space-y-2 border-t border-slate-50 pt-3">
+                            ${g.mergedBatches.map(b => {
+                                const expDisplay = b.expiryDate === "-" ? "Nincs lejárat" : b.expiryDate;
+                                const batchIds = b.ids.join(',');
+                                return `
+                                <div class="flex justify-between items-center text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                    <span class="text-slate-500 font-medium flex items-center gap-1.5">
+                                        <i data-lucide="${b.expiryDate === "-" ? "package-check" : "calendar"}" class="w-3.5 h-3.5 text-slate-400"></i>${expDisplay}
+                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-slate-700 bg-white px-2 py-0.5 rounded shadow-sm">${b.quantity} db</span>
+                                        <button onclick="changeQty('${b.ids[0]}', -1)" class="text-slate-400 hover:text-indigo-600 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                                        <button onclick="deleteMerged('${batchIds}')" class="text-rose-300 hover:text-rose-500 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="col-span-full py-12 text-center text-slate-400 font-medium">Nincs találat a keresésre, vagy a kamra üres.</div>';
+            lucide.createIcons();
+        }
+
+        // --- ÚJ, BIZTONSÁGOS ID ALAPÚ TÖRLÉSI FÜGGVÉNYEK ---
+        window.deleteAllGrouped = (idsStr) => {
+            if(!confirm("Biztosan törlöd az összeset ebből a termékből a kamrádból?")) return;
+            const ids = idsStr.split(',').filter(Boolean);
+            dbData.inventory = dbData.inventory.filter(i => !ids.includes(i.id));
+            saveItems();
+        };
+
+        window.deleteMerged = (idsStr) => {
+            const ids = idsStr.split(',').filter(Boolean);
+            dbData.inventory = dbData.inventory.filter(i => !ids.includes(i.id));
+            saveItems();
+        };
+
+        window.consumeEarliest = (idsStr) => {
+            const ids = idsStr.split(',').filter(Boolean);
+            let matches = dbData.inventory.filter(i => ids.includes(i.id) && i.status === 'active');
+            if(matches.length === 0) return;
+            
+            matches.sort((a, b) => {
+                const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                return dateA - dateB;
+            });
+
+            const earliestItem = matches[0];
+            if (Number(earliestItem.quantity) > 0) {
+                const newQty = Number(earliestItem.quantity) - 1;
+                earliestItem.quantity = newQty;
+                if(newQty === 0) {
+                    earliestItem.status = 'consumed';
+                    earliestItem.consumedAt = new Date().toISOString();
+                }
+                
+                // Mínusz gomb megnyomásával elfogyasztottuk, tehát naplózzuk!
+                logConsumption(earliestItem.brand || "Nincs", earliestItem.name, 1);
+            }
+        };
+
+        function renderExpiredList(expiredItems) {
+            const grid = document.getElementById('expired-grid');
+            const badge = document.getElementById('expired-badge');
+            
+            if(badge) badge.classList.toggle('hidden', expiredItems.length === 0);
+            if(!grid) return;
+
+            if (expiredItems.length === 0) {
+                grid.innerHTML = '<div class="col-span-full py-20 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 font-medium">Nincsenek lejárt termékek. Nagyszerű!</div>';
+                return;
+            }
+
+            grid.innerHTML = expiredItems.map(i => `
+                <div class="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-bold text-rose-500 uppercase tracking-wider">${i.brand}</span>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-lg mb-2">${i.name}</h4>
+                    <div class="mt-auto">
+                        <div class="flex items-center justify-between border-t border-rose-100 pt-3">
+                            <span class="text-sm font-bold bg-rose-100 text-rose-700 px-3 py-1 rounded-xl">${i.quantity} db</span>
+                            <span class="text-[10px] text-rose-500 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                Lejárt: ${i.expiryDate}
+                            </span>
+                        </div>
+                        <p class="text-[10px] text-rose-400 mt-2 text-center font-medium">${Math.max(0, 10 - (i.daysExpired || 0))} nap múlva törlődik</p>
+                        <button onclick="deleteItem('${i.id}')" class="w-full mt-3 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-xl transition-colors shadow-sm">Kidobtam</button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.toggleDetails = (id) => {
+            const el = document.getElementById(id);
+            el.classList.toggle('hidden');
+        };
+
+        function renderShoppingList() {
+            const pending = dbData.shoppingList.filter(i => i.status === 'pending');
+            const waiting = dbData.shoppingList.filter(i => i.status === 'waiting');
+            const done = dbData.shoppingList.filter(i => i.status === 'done');
+            
+            let html = '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Megvásárolandó</h3>';
+            html += pending.map(i => `
+                <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl mb-2 shadow-sm hover:border-indigo-200 transition-colors">
+                    <div class="flex items-center gap-4">
+                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Leltárba tesz)"><i data-lucide="circle" class="w-7 h-7"></i></button>
+                        <div>
+                            <div class="font-bold text-slate-700 text-lg leading-tight">${i.name} <span class="text-indigo-500 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                            <div class="text-[10px] text-indigo-400 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button onclick="setShoppingStatus('${i.id}', 'waiting')" class="p-2 text-amber-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all" title="Nem volt a boltban (Várólista)"><i data-lucide="clock" class="w-5 h-5"></i></button>
+                        <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                        <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>`).join('') || '<div class="text-sm text-slate-400 italic px-2">Nincs megvásárolandó tétel.</div>';
+
+            if (waiting.length) {
+                html += '<h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mt-10 mb-4 px-1">Hiánycikk (Várólista)</h3>';
+                html += waiting.map(i => `
+                    <div class="flex items-center justify-between p-4 bg-amber-50/50 border border-amber-100 rounded-2xl mb-2 shadow-sm hover:border-amber-200 transition-colors">
+                        <div class="flex items-center gap-4 opacity-75">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-amber-400 hover:text-amber-600 transition-colors" title="Újra listára teszem"><i data-lucide="rotate-ccw" class="w-6 h-6"></i></button>
+                            <div>
+                                <div class="font-bold text-amber-900 text-lg leading-tight">${i.name} <span class="text-amber-600 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                                <div class="text-[10px] text-amber-600 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="setShoppingStatus('${i.id}', 'done')" class="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Sikerült megvenni"><i data-lucide="check-circle-2" class="w-5 h-5"></i></button>
+                            <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                            <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-amber-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>`).join('');
+            }
+
+            if (done.length) {
+                html += '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-10 mb-4 px-1">Már a kosárban</h3>';
+                html += done.map(i => `
+                    <div class="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl mb-1 opacity-60">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
+                            <div class="line-through text-slate-500 font-medium">${i.name}</div>
+                        </div>
+                        <button onclick="removeShoppingItem('${i.id}')" class="text-slate-300 hover:text-rose-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+            }
+            shoppingListContainer.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        window.changeQty = (id, delta) => {
+            const item = dbData.inventory.find(i => i.id === id);
+            const nQ = Math.max(0, (Number(item.quantity) || 1) + delta);
+            const diff = (Number(item.quantity) || 1) - nQ;
+            
+            item.quantity = nQ;
+            item.status = nQ === 0 ? 'consumed' : 'active';
+            if (nQ === 0) item.consumedAt = new Date().toISOString();
+            
+            if (diff > 0) logConsumption(item.brand || "Nincs", item.name, diff);
+            else saveItems();
+        };
+        
+        window.deleteItem = (id) => {
+            dbData.inventory = dbData.inventory.filter(i => i.id !== id);
+            saveItems();
+        };
+        
+        window.switchTab = (id) => {
+            tabContents.forEach(t => t.classList.add('hidden'));
+            document.getElementById(`tab-${id}`).classList.remove('hidden');
+            navButtons.forEach(b => {
+                const active = b.dataset.tab === id;
+                b.className = `nav-btn flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`;
+            });
+            if(id === 'recipes') renderRecipes();
+            if(id === 'stats') renderStats();
+        };
+
+        navButtons.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+        aiPromptInput.addEventListener('keydown', e => { if(e.key === 'Enter') handleChefQuery(); });
+
+        window.bulkImportMaster = () => {
+            const modal = document.getElementById('import-modal');
+            document.getElementById('import-textarea').value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeImportModal = () => {
+            const modal = document.getElementById('import-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.executeBulkImport = () => {
+            const raw = document.getElementById('import-textarea').value;
+            if (!raw.trim()) return closeImportModal();
+            const lines = raw.split('\n').filter(l => l.includes(';'));
+            let count = 0;
+            for (let line of lines) {
+                const parts = line.split(';').map(s => s.trim());
+                if(parts.length < 2) continue;
+                dbData.masterItems.push({ id: generateId(), brand: parts[0] || "Ismeretlen", name: parts[1] || "Névtelen", weight: parts[2] || "-" });
+                count++;
+            }
+            saveItems();
+            closeImportModal();
+            handleShoppingSearch();
+            alert(`${count} termék sikeresen hozzáadva az adatbázishoz!`);
+        };
+
+        window.addNewMasterItem = (initialName) => {
+            currentShoppingItem = null; 
+            document.getElementById('sqm-name').value = initialName || '';
+            document.getElementById('sqm-brand').value = 'Saját';
+            document.getElementById('sqm-weight').value = '-';
+            document.getElementById('sqm-expiry').value = '';
+            document.getElementById('sqm-req').value = 1;
+            document.getElementById('sqm-home').value = 0;
+            document.getElementById('sqm-current-home').innerText = '0';
+            
+            const modal = document.getElementById('shopping-qty-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            searchInput.value = ''; searchResults.innerHTML = '';
+        };
+
+        window.parseBtnClick = () => {
+            const text = parseInput.value;
+            const lines = text.split('\n').filter(l => l.trim());
+            for (let line of lines) {
+                const parts = line.split(',').map(p => p.trim());
+                const find = (k) => parts.find(p => p.toLowerCase().includes(k))?.split(':')[1]?.trim();
+                
+                const brand = find('márka') || "Nincs";
+                const name = find('név') || line.substring(0, 20);
+                const qty = parseInt(find('darab')) || 1;
+                const weight = find('tömeg') || find('súly') || "-";
+                
+                const expiryRaw = find('lejárat');
+                let expiryDate = "-";
+                if (expiryRaw) {
+                    if (expiryRaw.includes('nap')) {
+                        const days = parseInt(expiryRaw) || 14;
+                        const d = new Date();
+                        d.setDate(d.getDate() + days);
+                        expiryDate = d.toISOString().split('T')[0];
+                    } else {
+                        expiryDate = expiryRaw;
+                    }
+                }
+
+                dbData.inventory.push({
+                    id: generateId(), brand: brand, name: name, quantity: qty, initialQuantity: qty,
+                    expiryDate: expiryDate, status: 'active', addedAt: new Date().toISOString()
+                });
+
+                const existsInMaster = dbData.masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
+                if (!existsInMaster) {
+                    dbData.masterItems.push({ id: generateId(), brand, name, weight });
+                }
+            }
+            saveItems();
+            parseInput.value = '';
+            switchTab('inventory');
+        };
+
+        document.getElementById('parse-btn').onclick = parseBtnClick;
+        
+        // Elindítjuk a Verceles adatbetöltést
+        loadItems();
+    </script>
 </body>
 </html>
