@@ -25,19 +25,19 @@
         <span class="text-sm font-bold tracking-tight">Felhő mentés...</span>
     </div>
 
-    <!-- Navigáció -->
+    <!-- Navigáció (Javítva, betonbiztos onclick eseményekkel) -->
     <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
         <div class="hidden md:flex items-center gap-3 mb-6 px-2 py-4 border-b border-slate-100 shrink-0">
             <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
             <h1 class="text-xl font-black text-slate-800 tracking-tighter">Okos Kamra</h1>
         </div>
-        <button data-tab="inventory" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all bg-indigo-50 text-indigo-700 font-bold"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Leltár</span></button>
-        <button data-tab="add" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400"><i data-lucide="plus-square" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Hozzáadás</span></button>
-        <button data-tab="shopping" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400"><i data-lucide="shopping-bag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Bevásárlás</span></button>
-        <button data-tab="recipes" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400"><i data-lucide="utensils-crossed" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Ételek</span></button>
-        <button data-tab="stats" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Statisztika</span></button>
-        <button data-tab="chef" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400"><i data-lucide="sparkles" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Séf Segéd</span></button>
-        <button data-tab="expired" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 relative">
+        <button onclick="switchTab('inventory')" data-tab="inventory" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all bg-indigo-50 text-indigo-700 font-bold shadow-sm"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Leltár</span></button>
+        <button onclick="switchTab('add')" data-tab="add" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="plus-square" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Hozzáadás</span></button>
+        <button onclick="switchTab('shopping')" data-tab="shopping" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="shopping-bag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Bevásárlás</span></button>
+        <button onclick="switchTab('recipes')" data-tab="recipes" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="utensils-crossed" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Ételek</span></button>
+        <button onclick="switchTab('stats')" data-tab="stats" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Statisztika</span></button>
+        <button onclick="switchTab('chef')" data-tab="chef" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="sparkles" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Séf Segéd</span></button>
+        <button onclick="switchTab('expired')" data-tab="expired" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600 relative">
             <i data-lucide="alert-octagon" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Lejárt</span>
             <div id="expired-badge" class="absolute top-1 right-1 md:top-2 md:right-2 w-2 h-2 bg-rose-500 rounded-full hidden animate-pulse shadow-md shadow-rose-200"></div>
         </button>
@@ -349,7 +349,6 @@
         const aiPromptInput = document.getElementById('ai-prompt');
         const chefResponseContainer = document.getElementById('chef-response-container');
         const parseInput = document.getElementById('parse-input');
-        const navButtons = document.querySelectorAll('.nav-btn');
         const tabContents = document.querySelectorAll('.tab-content');
 
         const todayForStats = new Date();
@@ -737,7 +736,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             }
         };
 
-        // --- HIÁNYZÓ FÜGGVÉNY PÓTOLVA ---
+        // --- JAVÍTVA ÉS PÓTOLVA ---
         function renderShoppingList() {
             const container = document.getElementById('shopping-list-container');
             if (!container) return;
@@ -804,7 +803,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
             item.status = newStatus;
             
-            // Ha kipipálják, rögzítjük az időpontot (a napi törléshez), de NEM tesszük még a leltárba!
             if (newStatus === 'done') {
                 item.statusUpdatedAt = new Date().toISOString();
             }
@@ -830,7 +828,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             }
 
             container.innerHTML = doneItems.map(i => {
-                // Kiszámoljuk a javasolt lejárati dátumot, ha volt beállítva szavatossági nap
                 let defaultExp = "";
                 if (i.expiryDays && !isNaN(parseInt(i.expiryDays))) {
                     const d = new Date();
@@ -875,7 +872,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
             if(!name) { alert("A név megadása kötelező!"); return; }
 
-            // 1. Betesszük a leltárba
             dbData.inventory.push({
                 id: generateId(),
                 brand: brand,
@@ -887,7 +883,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 addedAt: new Date().toISOString()
             });
 
-            // 2. Töröljük a bevásárlólistáról végleg
             dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
 
             saveItems();
@@ -940,7 +935,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             const todayStr = new Date().toISOString().split('T')[0];
             const todayDate = new Date(todayStr);
             
-            // Leltár auto törlés 10 nap után
             dbData.inventory = dbData.inventory.filter(item => {
                 if (item.status === 'active' && item.expiryDate && item.expiryDate !== "-") {
                     const expDate = new Date(item.expiryDate);
@@ -950,11 +944,10 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 return true;
             });
 
-            // NAPI TAKARÍTÁS: Bevásárlólistán ragadt "done" (kipipált) tételek törlése, ha tegnapi vagy régebbi
             dbData.shoppingList = dbData.shoppingList.filter(item => {
                 if (item.status === 'done' && item.statusUpdatedAt) {
                     const doneDateStr = new Date(item.statusUpdatedAt).toISOString().split('T')[0];
-                    if (doneDateStr < todayStr) return false; // Ha régebbi mint a mai nap, akkor töröljük
+                    if (doneDateStr < todayStr) return false; 
                 }
                 return true;
             });
@@ -1141,7 +1134,32 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             el.classList.toggle('hidden');
         };
 
-        // --- ÚJ, OKOSABB IMPORTÁLÓ ---
+        // --- ÚJ, BIZTONSÁGOS TAB VÁLTÁS ---
+        window.switchTab = (id) => {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(t => t.classList.add('hidden'));
+            
+            const target = document.getElementById(`tab-${id}`);
+            if(target) target.classList.remove('hidden');
+
+            const btns = document.querySelectorAll('.nav-btn');
+            btns.forEach(b => {
+                if(b.classList.contains('text-rose-400')) return; // Reset gombot átugorja
+                
+                if(b.dataset.tab === id) {
+                    b.classList.add('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm');
+                    b.classList.remove('text-slate-400', 'hover:bg-slate-50', 'hover:text-slate-600');
+                } else {
+                    b.classList.remove('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm');
+                    b.classList.add('text-slate-400', 'hover:bg-slate-50', 'hover:text-slate-600');
+                }
+            });
+
+            if(id === 'recipes') renderRecipes();
+            if(id === 'stats') renderStats();
+        };
+
+        // --- OKOSABB IMPORTÁLÓ ---
         window.bulkImportMaster = () => {
             const modal = document.getElementById('import-modal');
             document.getElementById('import-textarea').value = '';
@@ -1167,19 +1185,14 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 let name = "Névtelen";
                 let weight = "-";
 
-                // Kétféle formátum felismerése:
                 if (line.includes(';')) {
-                    // 1. Régi formátum: Márka;Név;Tömeg
                     const parts = line.split(';').map(s => s.trim());
                     if(parts.length >= 2) {
                         brand = parts[0] || "Ismeretlen";
                         name = parts[1] || "Névtelen";
                         weight = parts[2] || "-";
-                    } else {
-                        continue;
-                    }
+                    } else continue;
                 } else if (line.includes(':') && line.includes(',')) {
-                    // 2. Új formátum: Márka: Lidl, Név: Cipó, Tömeg: 350g
                     const parts = line.split(',').map(p => p.trim());
                     
                     const findValue = (key) => {
@@ -1191,14 +1204,9 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                     name = findValue('név') || "Névtelen";
                     weight = findValue('tömeg') || findValue('súly') || "-";
                     
-                    if (name === "Névtelen" && !line.toLowerCase().includes('név:')) {
-                        continue; // Ha nincs egyértelmű formátum, kihagyjuk
-                    }
-                } else {
-                    continue; // Ismeretlen sor
-                }
+                    if (name === "Névtelen" && !line.toLowerCase().includes('név:')) continue;
+                } else continue;
 
-                // Ellenőrizzük, hogy létezik-e már ez a termék a kereső adatbázisában (duplikáció szűrés)
                 const exists = dbData.masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
                 
                 if (!exists && name !== "Névtelen") {
