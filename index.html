@@ -25,7 +25,7 @@
         <span class="text-sm font-bold tracking-tight">Felhő mentés...</span>
     </div>
 
-    <!-- Navigáció (Javítva, betonbiztos onclick eseményekkel) -->
+    <!-- Navigáció -->
     <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
         <div class="hidden md:flex items-center gap-3 mb-6 px-2 py-4 border-b border-slate-100 shrink-0">
             <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
@@ -265,7 +265,7 @@
                     <h2 class="text-2xl font-black text-slate-800">Egyéb termékek</h2>
                 </div>
                 <p class="text-slate-500 text-sm italic">Példa: Márka: Milka, Név: Csoki, Darab: 3, Lejárat: 2026-10-10</p>
-                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a hagyományos listát..."></textarea>
+                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a hagyományos listát... Ha olyan terméket írsz be, ami felül megvásároltként várakozik, a rendszer okosan összeköti őket!"></textarea>
                 <button id="parse-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-3xl font-black text-lg shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">Mentés a Kamrába</button>
             </div>
         </section>
@@ -736,7 +736,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             }
         };
 
-        // --- JAVÍTVA ÉS PÓTOLVA ---
         function renderShoppingList() {
             const container = document.getElementById('shopping-list-container');
             if (!container) return;
@@ -1134,7 +1133,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             el.classList.toggle('hidden');
         };
 
-        // --- ÚJ, BIZTONSÁGOS TAB VÁLTÁS ---
         window.switchTab = (id) => {
             const tabs = document.querySelectorAll('.tab-content');
             tabs.forEach(t => t.classList.add('hidden'));
@@ -1144,7 +1142,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
             const btns = document.querySelectorAll('.nav-btn');
             btns.forEach(b => {
-                if(b.classList.contains('text-rose-400')) return; // Reset gombot átugorja
+                if(b.classList.contains('text-rose-400')) return; 
                 
                 if(b.dataset.tab === id) {
                     b.classList.add('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm');
@@ -1159,7 +1157,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             if(id === 'stats') renderStats();
         };
 
-        // --- OKOSABB IMPORTÁLÓ ---
         window.bulkImportMaster = () => {
             const modal = document.getElementById('import-modal');
             document.getElementById('import-textarea').value = '';
@@ -1238,6 +1235,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             searchInput.value = ''; searchResults.innerHTML = '';
         };
 
+        // --- ÚJ LOGIKA: Szövegfeldolgozó, ami törli a megvásárolt tételt is ---
         window.parseBtnClick = () => {
             const text = parseInput.value;
             const lines = text.split('\n').filter(l => l.trim());
@@ -1265,6 +1263,18 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                     } else {
                         expiryDate = expiryRaw;
                     }
+                }
+
+                // Keresünk egy egyező tételt a bevásárlólistán, ami éppen 'done' státuszú
+                const matchIndex = dbData.shoppingList.findIndex(
+                    s => s.status === 'done' && 
+                         s.name.toLowerCase() === name.toLowerCase() && 
+                         (s.brand || 'Nincs').toLowerCase() === brand.toLowerCase()
+                );
+
+                // Ha találtunk ilyet, töröljük a bevásárlólistáról, így "átvisszük" a kamrába!
+                if (matchIndex > -1) {
+                    dbData.shoppingList.splice(matchIndex, 1);
                 }
 
                 dbData.inventory.push({
