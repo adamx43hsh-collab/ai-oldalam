@@ -27,7 +27,7 @@
 
     <!-- Navigáció -->
     <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
-        <div class="hidden md:flex items-center gap-3 mb-10 px-2 py-4 border-b border-slate-100 shrink-0">
+        <div class="hidden md:flex items-center gap-3 mb-6 px-2 py-4 border-b border-slate-100 shrink-0">
             <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
             <h1 class="text-xl font-black text-slate-800 tracking-tighter">Okos Kamra</h1>
         </div>
@@ -40,6 +40,11 @@
         <button data-tab="expired" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 relative">
             <i data-lucide="alert-octagon" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Lejárt</span>
             <div id="expired-badge" class="absolute top-1 right-1 md:top-2 md:right-2 w-2 h-2 bg-rose-500 rounded-full hidden animate-pulse shadow-md shadow-rose-200"></div>
+        </button>
+        
+        <!-- GLOBÁLIS RESET GOMB -->
+        <button onclick="clearAllData()" class="md:mt-auto nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-rose-400 hover:bg-rose-50 hover:text-rose-600" title="Teljes Okoskamra Törlése">
+            <i data-lucide="power-off" class="w-5 h-5"></i><span class="text-[10px] md:text-sm font-bold">Reset</span>
         </button>
     </nav>
 
@@ -199,13 +204,6 @@
                     </table>
                 </div>
             </div>
-
-            <!-- Adattörlés Gomb -->
-            <div class="mt-12 pt-8 border-t border-rose-100 flex flex-col items-center gap-4">
-                <button onclick="clearAllData()" class="px-6 py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl text-xs font-bold flex items-center gap-2 transition-colors">
-                    <i data-lucide="alert-triangle" class="w-4 h-4"></i> Veszélyzóna: Minden adat törlése (Reset)
-                </button>
-            </div>
         </section>
 
         <!-- SAJÁT ÉTELEK / RECEPTEK FÜL -->
@@ -248,15 +246,22 @@
         </section>
 
         <!-- HOZZÁADÁS -->
-        <section id="tab-add" class="tab-content hidden fade-in max-w-2xl mx-auto">
-            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+        <section id="tab-add" class="tab-content hidden fade-in max-w-4xl mx-auto space-y-8">
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6 max-w-2xl mx-auto">
                 <div class="flex items-center gap-4 mb-4">
                     <div class="bg-indigo-100 p-3 rounded-2xl text-indigo-600"><i data-lucide="clipboard-edit" class="w-6 h-6"></i></div>
                     <h2 class="text-2xl font-black text-slate-800">Új termékek</h2>
                 </div>
                 <p class="text-slate-500 text-sm italic">Példa: Márka: Milka, Név: Csoki, Darab: 3, Lejárat: 2026-10-10</p>
-                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Vagy csak másold be a listát..."></textarea>
+                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a hagyományos listát..."></textarea>
                 <button id="parse-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-3xl font-black text-lg shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">Mentés a Kamrába</button>
+            </div>
+
+            <!-- ÚJ: BEVÁSÁROLT TERMÉKEK JÓVÁHAGYÁSA -->
+            <div class="mt-8 pt-8 border-t border-slate-200">
+                <h3 class="text-xl font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="check-square" class="w-6 h-6 text-emerald-500"></i> Megvásárolt termékek bevitele</h3>
+                <p class="text-slate-500 text-sm mb-6">A bevásárlólistán kipipált termékek itt várnak a kamrába helyezésre. Add meg a lejárati dátumokat!</p>
+                <div id="purchased-items-container" class="space-y-3"></div>
             </div>
         </section>
 
@@ -315,7 +320,7 @@
         </section>
     </main>
 
-    <!-- JS LOGIKA A VERCEL/REDIS BACKENDHEZ (AJAX Retry-al kiegészítve) -->
+    <!-- JS LOGIKA -->
     <script>
         let dbData = {
             inventory: [],
@@ -336,6 +341,7 @@
         const searchInput = document.getElementById('shopping-search');
         const searchResults = document.getElementById('shopping-search-results');
         const shoppingListContainer = document.getElementById('shopping-list-container');
+        const purchasedItemsContainer = document.getElementById('purchased-items-container');
         const aiPromptInput = document.getElementById('ai-prompt');
         const chefResponseContainer = document.getElementById('chef-response-container');
         const parseInput = document.getElementById('parse-input');
@@ -345,7 +351,7 @@
         const todayForStats = new Date();
         document.getElementById('stats-month').value = todayForStats.toISOString().slice(0, 7);
 
-        // --- FETCH WITH RETRY (AI / Vercel Túlterhelés esetére: 2 mp várakozás) ---
+        // --- FETCH WITH RETRY ---
         async function fetchWithRetry(url, options, retries = 5) {
             let lastError;
             for (let i = 0; i < retries; i++) {
@@ -383,6 +389,7 @@
                 
                 cleanupAndRender();
                 renderShoppingList();
+                renderPurchasedItems();
                 renderRecipes();
                 renderStats();
             } catch (e) {
@@ -396,6 +403,7 @@
             loadingBadge.classList.add('active');
             cleanupAndRender();
             renderShoppingList();
+            renderPurchasedItems();
             renderRecipes();
             renderStats();
             try {
@@ -413,18 +421,12 @@
 
         const generateId = () => Date.now().toString() + Math.random().toString(36).substring(2);
 
-        // --- MINDEN ADAT TÖRLÉSE ---
+        // --- MINDEN ADAT TÖRLÉSE (GLOBÁLIS) ---
         window.clearAllData = () => {
-            if(confirm("FIGYELEM! Biztosan törölsz MINDEN adatot? Ezt nem lehet visszavonni! (Leltár, bevásárlólista, saját ételek, statisztika, adatbázis)")) {
-                dbData = {
-                    inventory: [],
-                    masterItems: [],
-                    shoppingList: [],
-                    recipes: [],
-                    consumption: []
-                };
+            if(confirm("VIGYÁZAT! Ezzel minden adatot (Leltár, Bevásárlólista, Ételek, Statisztika) azonnal és véglegesen törölsz a felhőből. Biztosan folytatod?")) {
+                dbData = { inventory: [], masterItems: [], shoppingList: [], recipes: [], consumption: [] };
                 saveItems();
-                alert("A rendszer sikeresen alaphelyzetbe állt!");
+                alert("A Kamra sikeresen alaphelyzetbe állt!");
                 switchTab('inventory');
             }
         };
@@ -434,7 +436,7 @@
             if (isAiLoading) return;
             const prompt = aiPromptInput.value.trim();
             isAiLoading = true;
-            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja... (Újrapróbálkozás aktív)</div>`;
+            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja...</div>`;
             
             const activeItems = dbData.inventory.filter(i => i.status === 'active');
             const inv = activeItems.map(i => `- ${i.brand} ${i.name} (${i.quantity}db)`).join('\n');
@@ -462,7 +464,7 @@
             if (isAiLoading) return;
             const container = document.getElementById('ai-shopping-response-container');
             container.classList.remove('hidden');
-            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI elemzi a fogyasztási szokásaidat... (Újrapróbálkozás aktív)</div>`;
+            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI listát ír...</div>`;
             isAiLoading = true;
 
             const activeItems = dbData.inventory.filter(i => i.status === 'active');
@@ -481,18 +483,22 @@
             });
             const consText = Object.entries(consMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: összesen ${v.total} db fogyott eddig`).join('\n') || "Még nincs rögzített fogyasztás.";
 
-            const prompt = `Te egy profi háztartásvezető AI vagy.
-Jelenlegi kamra készlet:
+            // SZIGORÚ PROMPT AZ AI-NAK: CSAK LISTA!
+            const prompt = `Készíts egy bevásárlólistát a jelenlegi készlet és a fogyasztási statisztika alapján!
+
+Jelenlegi készlet:
 ${invText}
 
-Eddigi fogyasztási statisztika:
+Fogyasztási statisztika:
 ${consText}
 
-Készíts egy intelligens bevásárlólistát! 
-- Elemezd a különbséget aközött, hogy mi fogyott sokat, és miből van jelenleg kevés.
-- Javasolj konkrét termékeket és darabszámokat.
-- Röviden indokold meg a javaslatokat.
-Használj Markdown formázást!`;
+SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA: 
+- CSAK és KIZÁRÓLAG a listát add vissza! 
+- Formátum szigorúan: "- [Terméknév] ([Márka, ha van]) - [Mennyiség] db"
+- TILOS bármilyen bevezető szöveg (pl. "Itt a lista:" vagy "A statisztika alapján...").
+- TILOS bármilyen lezáró szöveg.
+- TILOS megindokolni, hogy mit miért ajánlasz.
+- Ha nincs semmi ajánlat, csak annyit írj: "Jelenleg mindenből van elég."`;
 
             try {
                 const data = await fetchWithRetry('/api/chat', {
@@ -524,7 +530,7 @@ Használj Markdown formázást!`;
             const selectedMonth = document.getElementById('stats-month').value || new Date().toISOString().slice(0, 7);
             const today = new Date();
             const currentMonthStr = today.toISOString().slice(0, 7);
-            let daysElapsed = selectedMonth === currentMonthStr ? today.getDate() : new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).getDate();
+            let daysElapsed = selectedMonth === currentMonthStr ? Math.max(1, today.getDate()) : new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).getDate();
 
             const monthlyData = dbData.consumption.filter(c => c.month === selectedMonth);
             const grouped = {};
@@ -732,30 +738,93 @@ Használj Markdown formázást!`;
             if (!item) return;
 
             item.status = newStatus;
-
-            if (newStatus === 'done' && !item.addedToInventory) {
-                item.addedToInventory = true;
-                
-                let expDateStr = "-"; 
-                if (item.expiryDays !== undefined && item.expiryDays !== "" && !isNaN(parseInt(item.expiryDays))) {
-                    const days = parseInt(item.expiryDays);
-                    const expDate = new Date();
-                    expDate.setDate(expDate.getDate() + days);
-                    expDateStr = expDate.toISOString().split('T')[0];
-                }
-
-                dbData.inventory.push({
-                    id: generateId(),
-                    brand: item.brand || "Ismeretlen", name: item.name,
-                    quantity: item.requiredQuantity || 1, initialQuantity: item.requiredQuantity || 1,
-                    expiryDate: expDateStr, status: 'active', addedAt: new Date().toISOString()
-                });
+            
+            // Ha kipipálják, rögzítjük az időpontot (a napi törléshez), de NEM tesszük még a leltárba!
+            if (newStatus === 'done') {
+                item.statusUpdatedAt = new Date().toISOString();
             }
+
             saveItems();
         };
 
         window.removeShoppingItem = (id) => {
             dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
+            saveItems();
+        };
+
+        // --- ÚJ: MEGVÁSÁROLT TERMÉKEK JÓVÁHAGYÁSA (HOZZÁADÁS FÜL) ---
+        window.renderPurchasedItems = () => {
+            const container = document.getElementById('purchased-items-container');
+            if (!container) return;
+
+            const doneItems = dbData.shoppingList.filter(i => i.status === 'done');
+            
+            if (doneItems.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 italic bg-slate-50 p-6 rounded-2xl border border-slate-100 text-center">Nincs jóváhagyásra váró, megvásárolt termék.</div>';
+                return;
+            }
+
+            container.innerHTML = doneItems.map(i => {
+                // Kiszámoljuk a javasolt lejárati dátumot, ha volt beállítva szavatossági nap
+                let defaultExp = "";
+                if (i.expiryDays && !isNaN(parseInt(i.expiryDays))) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + parseInt(i.expiryDays));
+                    defaultExp = d.toISOString().split('T')[0];
+                }
+
+                return `
+                <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center">
+                    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Név</label>
+                            <input type="text" id="pi-name-${i.id}" value="${i.name}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-700 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Márka</label>
+                            <input type="text" id="pi-brand-${i.id}" value="${i.brand || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Darab</label>
+                            <input type="number" id="pi-qty-${i.id}" value="${i.requiredQuantity || 1}" min="1" class="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl outline-none text-sm font-black text-emerald-700 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Lejárat (opcionális)</label>
+                            <input type="date" id="pi-exp-${i.id}" value="${defaultExp}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:ring-2 ring-emerald-100">
+                        </div>
+                    </div>
+                    <button onclick="confirmPurchasedItem('${i.id}')" class="w-full md:w-auto px-6 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-md shadow-emerald-100 transition-colors whitespace-nowrap active:scale-95 flex items-center justify-center gap-2">
+                        Kamrába <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `}).join('');
+            lucide.createIcons();
+        };
+
+        window.confirmPurchasedItem = (id) => {
+            const name = document.getElementById(`pi-name-${id}`).value.trim();
+            const brand = document.getElementById(`pi-brand-${id}`).value.trim() || 'Nincs';
+            const qty = parseInt(document.getElementById(`pi-qty-${id}`).value) || 1;
+            const expRaw = document.getElementById(`pi-exp-${id}`).value;
+            const expiryDate = expRaw ? expRaw : '-';
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+
+            // 1. Betesszük a leltárba
+            dbData.inventory.push({
+                id: generateId(),
+                brand: brand,
+                name: name,
+                quantity: qty,
+                initialQuantity: qty,
+                expiryDate: expiryDate,
+                status: 'active',
+                addedAt: new Date().toISOString()
+            });
+
+            // 2. Töröljük a bevásárlólistáról végleg
+            dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
+
             saveItems();
         };
 
@@ -806,11 +875,21 @@ Használj Markdown formázást!`;
             const todayStr = new Date().toISOString().split('T')[0];
             const todayDate = new Date(todayStr);
             
+            // Leltár auto törlés 10 nap után
             dbData.inventory = dbData.inventory.filter(item => {
                 if (item.status === 'active' && item.expiryDate && item.expiryDate !== "-") {
                     const expDate = new Date(item.expiryDate);
                     const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
                     if (diffDays >= 10) return false; 
+                }
+                return true;
+            });
+
+            // NAPI TAKARÍTÁS: Bevásárlólistán ragadt "done" (kipipált) tételek törlése, ha tegnapi vagy régebbi
+            dbData.shoppingList = dbData.shoppingList.filter(item => {
+                if (item.status === 'done' && item.statusUpdatedAt) {
+                    const doneDateStr = new Date(item.statusUpdatedAt).toISOString().split('T')[0];
+                    if (doneDateStr < todayStr) return false; // Ha régebbi mint a mai nap, akkor töröljük
                 }
                 return true;
             });
@@ -1006,7 +1085,7 @@ Használj Markdown formázást!`;
             html += pending.map(i => `
                 <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl mb-2 shadow-sm hover:border-indigo-200 transition-colors">
                     <div class="flex items-center gap-4">
-                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Leltárba tesz)"><i data-lucide="circle" class="w-7 h-7"></i></button>
+                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Bevitelhez küldi)"><i data-lucide="circle" class="w-7 h-7"></i></button>
                         <div>
                             <div class="font-bold text-slate-700 text-lg leading-tight">${i.name} <span class="text-indigo-500 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
                             <div class="text-[10px] text-indigo-400 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
@@ -1039,14 +1118,14 @@ Használj Markdown formázást!`;
             }
 
             if (done.length) {
-                html += '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-10 mb-4 px-1">Már a kosárban</h3>';
+                html += '<h3 class="text-xs font-bold text-emerald-500 uppercase tracking-widest mt-10 mb-4 px-1">Megvásárolva (Átkerült a Hozzáadás fülre)</h3>';
                 html += done.map(i => `
-                    <div class="flex items-center justify-between p-3 bg-slate-50/50 rounded-2xl mb-1 opacity-60">
+                    <div class="flex items-center justify-between p-3 bg-emerald-50/50 rounded-2xl mb-1 opacity-70 border border-emerald-100">
                         <div class="flex items-center gap-3">
-                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
-                            <div class="line-through text-slate-500 font-medium">${i.name}</div>
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500 hover:text-amber-500 transition-colors" title="Visszavonás"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
+                            <div class="line-through text-emerald-700 font-medium">${i.name}</div>
                         </div>
-                        <button onclick="removeShoppingItem('${i.id}')" class="text-slate-300 hover:text-rose-400"><i data-lucide="x" class="w-4 h-4"></i></button>
+                        <button onclick="removeShoppingItem('${i.id}')" class="text-emerald-300 hover:text-rose-400"><i data-lucide="x" class="w-4 h-4"></i></button>
                     </div>`).join('');
             }
             shoppingListContainer.innerHTML = html;
@@ -1076,13 +1155,22 @@ Használj Markdown formázást!`;
             document.getElementById(`tab-${id}`).classList.remove('hidden');
             navButtons.forEach(b => {
                 const active = b.dataset.tab === id;
-                b.className = `nav-btn flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`;
+                // Alap navigációs gombok formázása
+                if(!b.classList.contains('text-rose-400')) {
+                    b.className = `nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`;
+                }
             });
             if(id === 'recipes') renderRecipes();
             if(id === 'stats') renderStats();
         };
 
-        navButtons.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+        // Gomb eseménykezelők, kivéve a reset gombot (hogy az ne kaphasson aktív kék színt)
+        navButtons.forEach(btn => {
+            if(!btn.classList.contains('text-rose-400')) {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            }
+        });
+        
         aiPromptInput.addEventListener('keydown', e => { if(e.key === 'Enter') handleChefQuery(); });
 
         window.bulkImportMaster = () => {
@@ -1174,9 +1262,7 @@ Használj Markdown formázást!`;
 
         document.getElementById('parse-btn').onclick = parseBtnClick;
         
-        // Indítás
         loadItems();
     </script>
 </body>
 </html>
-```eof
