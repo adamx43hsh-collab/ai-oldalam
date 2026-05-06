@@ -2,13 +2,13 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   
   if (!apiKey) {
-    return res.status(200).json({ reply: "Hiba: A Vercel nem találja a környezeti változót (GEMINI_API_KEY)!" });
+    return res.status(200).json({ reply: "Hiba: A Vercel nem találja a GEMINI_API_KEY-t!" });
   }
 
   const userMessage = req.body.message || "Mit főzzek ma?";
 
   try {
-    // Visszaállva v1beta-ra és a biztos modell névre
+    // Visszatérünk a legstabilabb URL-re és modell névre
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         contents: [{ 
           parts: [{ text: userMessage }] 
         }],
-        // JAVÍTÁS: aláírás (snake_case) kell: system_instruction
+        // JAVÍTÁS: Itt kötelező a snake_case (system_instruction)
         system_instruction: {
           parts: [{ text: "Te egy profi magyar háztartásvezető és séf AI vagy. A felhasználó kamrájában lévő alapanyagok, fogyasztási statisztikák és a saját mentett receptjei alapján válaszolj. Válaszaid legyenek kedvesek, hasznosak, és használj szép Markdown formázást (vastagítás, áttekinthető listák)!" }]
         }
@@ -27,13 +27,15 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
+    // Ha a Google hibát dob, azt itt látni fogjuk
     if (data.error) {
-       console.error("Google API Hiba részletek:", data.error);
+       console.error("Google API Részletes Hiba:", JSON.stringify(data.error, null, 2));
        return res.status(200).json({ reply: `Google API Hiba: ${data.error.message}` });
     }
     
+    // Ellenőrizzük, hogy van-e érvényes válasz
     if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-        return res.status(200).json({ reply: "Sajnos az AI most nem tudott válaszolni. Kérlek, próbáld újra!" });
+        return res.status(200).json({ reply: "Sajnos az AI most nem tudott válaszolni. Kérlek, próbáld újra pár másodperc múlva!" });
     }
     
     const replyText = data.candidates[0].content.parts[0].text;
