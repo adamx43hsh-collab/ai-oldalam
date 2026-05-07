@@ -181,15 +181,12 @@
             <div id="inventory-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
         </section>
 
-        <!-- STATISZTIKA FÜL -->
+        <!-- STATISZTIKA FÜL (Javítva: Vásárlási Gyakoriság) -->
         <section id="tab-stats" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
             <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h2 class="text-3xl font-black text-slate-800">Statisztika</h2>
-                    <p class="text-slate-500 font-semibold mt-1">Fogyasztási szokások havi bontásban.</p>
-                </div>
-                <div class="relative w-full sm:w-auto">
-                    <input type="month" id="stats-month" onchange="changeStatsMonth()" class="w-full p-3 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-700">
+                    <h2 class="text-3xl font-black text-slate-800">Vásárlási Gyakoriság</h2>
+                    <p class="text-slate-500 font-semibold mt-1">Elemzés arról, hogy milyen időközönként kerülnek be a termékek a raktárba.</p>
                 </div>
             </header>
 
@@ -198,9 +195,9 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-100">
-                                <th class="p-5 font-bold">Termék</th>
-                                <th class="p-5 font-bold text-center">Összesen</th>
-                                <th class="p-5 font-bold text-center">Fogyasztási tempó</th>
+                                <th class="p-5 font-bold">Termék adatai</th>
+                                <th class="p-5 font-bold text-center">Összes vásárlás</th>
+                                <th class="p-5 font-bold text-center">Beszerzési ütem</th>
                             </tr>
                         </thead>
                         <tbody id="stats-tbody" class="divide-y divide-slate-50">
@@ -331,7 +328,8 @@
             masterItems: [],
             shoppingList: [],
             recipes: [],
-            consumption: []
+            consumption: [],
+            purchaseHistory: [] // ÚJ: Vásárlási napló
         };
         
         let activeTab = 'inventory';
@@ -350,9 +348,6 @@
         const chefResponseContainer = document.getElementById('chef-response-container');
         const parseInput = document.getElementById('parse-input');
         const tabContents = document.querySelectorAll('.tab-content');
-
-        const todayForStats = new Date();
-        document.getElementById('stats-month').value = todayForStats.toISOString().slice(0, 7);
 
         // --- FETCH WITH RETRY ---
         async function fetchWithRetry(url, options, retries = 5) {
@@ -388,6 +383,7 @@
                     dbData.shoppingList = data.shoppingList || [];
                     dbData.recipes = data.recipes || [];
                     dbData.consumption = data.consumption || [];
+                    dbData.purchaseHistory = data.purchaseHistory || []; // Beolvasás javítva
                 }
                 
                 cleanupAndRender();
@@ -427,7 +423,7 @@
         // --- MINDEN ADAT TÖRLÉSE (GLOBÁLIS) ---
         window.clearAllData = () => {
             if(confirm("VIGYÁZAT! Ezzel minden adatot (Leltár, Bevásárlólista, Ételek, Statisztika) azonnal és véglegesen törölsz a felhőből. Biztosan folytatod?")) {
-                dbData = { inventory: [], masterItems: [], shoppingList: [], recipes: [], consumption: [] };
+                dbData = { inventory: [], masterItems: [], shoppingList: [], recipes: [], consumption: [], purchaseHistory: [] };
                 saveItems();
                 alert("A Kamra sikeresen alaphelyzetbe állt!");
                 switchTab('inventory');
@@ -526,52 +522,70 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             saveItems(); 
         };
 
+        window.logPurchase = (brand, name) => {
+            const now = new Date();
+            dbData.purchaseHistory.push({
+                brand: brand || "Nincs",
+                name: name,
+                date: now.toISOString()
+            });
+        };
+
         window.renderStats = () => {
             const tbody = document.getElementById('stats-tbody');
             if (!tbody) return;
 
-            const selectedMonth = document.getElementById('stats-month').value || new Date().toISOString().slice(0, 7);
-            const today = new Date();
-            const currentMonthStr = today.toISOString().slice(0, 7);
-            let daysElapsed = selectedMonth === currentMonthStr ? Math.max(1, today.getDate()) : new Date(selectedMonth.split('-')[0], selectedMonth.split('-')[1], 0).getDate();
-
-            const monthlyData = dbData.consumption.filter(c => c.month === selectedMonth);
             const grouped = {};
-            monthlyData.forEach(c => {
-                const key = `${c.brand}:::${c.name}`;
-                if (!grouped[key]) grouped[key] = { brand: c.brand, name: c.name, total: 0 };
-                grouped[key].total += Number(c.quantity);
+            (dbData.purchaseHistory || []).forEach(p => {
+                const key = `${(p.brand || '').toLowerCase()}:::${(p.name || '').toLowerCase()}`;
+                if (!grouped[key]) grouped[key] = { brand: p.brand, name: p.name, dates: [] };
+                grouped[key].dates.push(new Date(p.date));
             });
 
-            const statsArray = Object.values(grouped).sort((a, b) => b.total - a.total);
+            const results = Object.values(grouped).map(item => {
+                item.dates.sort((a, b) => a - b);
+                let frequencyText = "Nincs elég adat";
+                let avgDays = 0;
 
-            if (statsArray.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-12 text-slate-400 font-medium">Nincs rögzített fogyasztás ebben a hónapban.</td></tr>';
+                if (item.dates.length > 1) {
+                    const first = item.dates[0];
+                    const last = item.dates[item.dates.length - 1];
+                    const totalDays = (last - first) / (1000 * 60 * 60 * 24);
+                    avgDays = Math.round(totalDays / (item.dates.length - 1));
+                    frequencyText = avgDays === 0 ? "Naponta veszed" : `Átlagosan ${avgDays} naponta`;
+                }
+
+                return {
+                    brand: item.brand,
+                    name: item.name,
+                    total: item.dates.length,
+                    frequency: frequencyText,
+                    avg: avgDays
+                };
+            }).sort((a, b) => b.total - a.total);
+
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-12 text-slate-400 font-medium">Még nincsenek rögzített vásárlások.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = statsArray.map(stat => {
-                const perDay = (stat.total / daysElapsed).toFixed(2);
-                const daysPerOne = stat.total > 0 ? (daysElapsed / stat.total).toFixed(1) : '-';
-                
-                return `
+            tbody.innerHTML = results.map(r => `
                 <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                     <td class="p-5">
-                        <div class="font-bold text-slate-700 text-base">${stat.name}</div>
-                        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">${stat.brand}</div>
+                        <div class="font-bold text-slate-700 text-base">${r.name}</div>
+                        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">${r.brand}</div>
                     </td>
                     <td class="p-5 text-center">
-                        <span class="font-black text-2xl text-emerald-500">${stat.total} <span class="text-sm font-medium text-slate-400">db</span></span>
+                        <span class="font-black text-2xl text-slate-700">${r.total} <span class="text-sm font-medium text-slate-400">alkalom</span></span>
                     </td>
                     <td class="p-5 text-center">
-                        <div class="font-bold text-slate-700 bg-white shadow-sm border border-slate-100 rounded-lg py-1 px-3 inline-block">${perDay} <span class="text-[10px] text-slate-400 uppercase tracking-widest">db/nap</span></div>
-                        <div class="text-[10px] text-slate-400 font-medium mt-1">Vagy: 1 db / ${daysPerOne} nap</div>
+                        <div class="font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg py-2 px-4 inline-block shadow-sm">
+                            ${r.frequency}
+                        </div>
                     </td>
-                </tr>`;
-            }).join('');
+                </tr>
+            `).join('');
         };
-
-        window.changeStatsMonth = () => renderStats();
 
         // --- BEVÁSÁRLÓLISTA ÉS MESTER ADATBÁZIS ---
         window.handleShoppingSearch = () => {
@@ -707,6 +721,9 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
             if (currentTotal < targetQty) {
                 const diff = targetQty - currentTotal;
+                
+                logPurchase(brand, name); // ÚJ
+                
                 dbData.inventory.push({
                     id: generateId(), brand: brand || "Nincs", name: name,
                     quantity: diff, initialQuantity: diff, expiryDate: "-", status: 'active', addedAt: new Date().toISOString()
@@ -870,6 +887,8 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             const expiryDate = expRaw ? expRaw : '-';
 
             if(!name) { alert("A név megadása kötelező!"); return; }
+            
+            logPurchase(brand, name); // ÚJ
 
             dbData.inventory.push({
                 id: generateId(),
@@ -1276,6 +1295,8 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 if (matchIndex > -1) {
                     dbData.shoppingList.splice(matchIndex, 1);
                 }
+                
+                logPurchase(brand, name); // ÚJ
 
                 dbData.inventory.push({
                     id: generateId(), brand: brand, name: name, quantity: qty, initialQuantity: qty,
