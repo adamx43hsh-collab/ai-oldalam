@@ -1,582 +1,538 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Okos Kamra - Közös Felhő</title>
-    <link rel="manifest" href="/manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Okos Kamra - Közös Felhő</title>
+    <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#4f46e5">
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        #db-loading { display: none; }
-        #db-loading.active { display: flex; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .hide-scroll::-webkit-scrollbar { display: none; }
-        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        #db-loading { display: none; }
+        #db-loading.active { display: flex; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen pb-24 md:pb-0 md:pl-64 font-sans antialiased">
-    <div id="db-loading" class="fixed top-4 right-4 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl shadow-xl z-50 items-center gap-3 animate-bounce">
-        <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> 
-        <span class="text-sm font-bold tracking-tight">Felhő mentés...</span>
-    </div>
+    <!-- Szinkronizációs jelző -->
+    <div id="db-loading" class="fixed top-4 right-4 bg-indigo-600 text-white px-5 py-2.5 rounded-2xl shadow-xl z-50 items-center gap-3 animate-bounce">
+        <i data-lucide="refresh-cw" class="w-4 h-4 animate-spin"></i> 
+        <span class="text-sm font-bold tracking-tight">Felhő mentés...</span>
+    </div>
 
-    <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
-        <div class="hidden md:flex items-center gap-3 mb-6 px-2 py-4 border-b border-slate-100 shrink-0">
-            <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
-            <h1 class="text-xl font-black text-slate-800 tracking-tighter">Okos Kamra</h1>
-        </div>
-        <button onclick="switchTab('inventory')" data-tab="inventory" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all bg-indigo-50 text-indigo-700 font-bold shadow-sm"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Leltár</span></button>
-        <button onclick="switchTab('add')" data-tab="add" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="plus-square" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Hozzáadás</span></button>
-        <button onclick="switchTab('shopping')" data-tab="shopping" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="shopping-bag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Bevásárlás</span></button>
-        
-        <button onclick="openPromoTab()" data-tab="promotions" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="tag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Akciók</span></button>
+    <!-- Navigáció -->
+    <nav class="fixed bottom-0 left-0 right-0 md:top-0 md:w-64 bg-white/80 backdrop-blur-md border-t md:border-r border-slate-200 z-40 p-2 md:p-4 flex md:flex-col gap-2 md:gap-3 shadow-2xl md:shadow-none overflow-x-auto hide-scroll">
+        <div class="hidden md:flex items-center gap-3 mb-6 px-2 py-4 border-b border-slate-100 shrink-0">
+            <div class="bg-indigo-600 p-2.5 rounded-2xl text-white shadow-indigo-200 shadow-lg"><i data-lucide="layout-grid" class="w-6 h-6"></i></div>
+            <h1 class="text-xl font-black text-slate-800 tracking-tighter">Okos Kamra</h1>
+        </div>
+        <button onclick="switchTab('inventory')" data-tab="inventory" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all bg-indigo-50 text-indigo-700 font-bold shadow-sm"><i data-lucide="clipboard-list" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Leltár</span></button>
+        <button onclick="switchTab('add')" data-tab="add" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="plus-square" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Hozzáadás</span></button>
+        <button onclick="switchTab('shopping')" data-tab="shopping" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="shopping-bag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Bevásárlás</span></button>
+        <button onclick="handlePromoTabClick()" data-tab="promos" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="tag" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Akciók</span></button>
+        <button onclick="switchTab('recipes')" data-tab="recipes" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="utensils-crossed" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Ételek</span></button>
+        <button onclick="switchTab('stats')" data-tab="stats" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Statisztika</span></button>
+        <button onclick="switchTab('chef')" data-tab="chef" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="sparkles" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Séf Segéd</span></button>
+        <button onclick="switchTab('expired')" data-tab="expired" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600 relative">
+            <i data-lucide="alert-octagon" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Lejárt</span>
+            <div id="expired-badge" class="absolute top-1 right-1 md:top-2 md:right-2 w-2 h-2 bg-rose-500 rounded-full hidden animate-pulse shadow-md shadow-rose-200"></div>
+        </button>
+        
+        <!-- GLOBÁLIS RESET GOMB -->
+        <button onclick="clearAllData()" class="md:mt-auto nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-rose-400 hover:bg-rose-50 hover:text-rose-600" title="Teljes Okoskamra Törlése">
+            <i data-lucide="power-off" class="w-5 h-5"></i><span class="text-[10px] md:text-sm font-bold">Reset</span>
+        </button>
+    </nav>
 
-        <button onclick="switchTab('recipes')" data-tab="recipes" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="utensils-crossed" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Ételek</span></button>
-        <button onclick="switchTab('stats')" data-tab="stats" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Statisztika</span></button>
-        <button onclick="switchTab('chef')" data-tab="chef" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600"><i data-lucide="sparkles" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Séf Segéd</span></button>
-        <button onclick="switchTab('expired')" data-tab="expired" class="nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-slate-400 hover:bg-slate-50 hover:text-slate-600 relative">
-            <i data-lucide="alert-octagon" class="w-5 h-5"></i><span class="text-[10px] md:text-sm">Lejárt</span>
-            <div id="expired-badge" class="absolute top-1 right-1 md:top-2 md:right-2 w-2 h-2 bg-rose-500 rounded-full hidden animate-pulse shadow-md shadow-rose-200"></div>
-        </button>
-        
-        <button onclick="clearAllData()" class="md:mt-auto nav-btn shrink-0 flex flex-col md:flex-row items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3 rounded-xl transition-all text-rose-400 hover:bg-rose-50 hover:text-rose-600" title="Teljes Okoskamra Törlése">
-            <i data-lucide="power-off" class="w-5 h-5"></i><span class="text-[10px] md:text-sm font-bold">Reset</span>
-        </button>
-    </nav>
+    <!-- Mennyiség és Készlet Modal -->
+    <div id="shopping-qty-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-100">
+            <h3 class="text-2xl font-black text-slate-800 mb-6">Termék adatai</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Név *</label>
+                    <input type="text" id="sqm-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-700" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Márka</label>
+                    <input type="text" id="sqm-brand" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tömeg / Méret</label>
+                        <input type="text" id="sqm-weight" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" placeholder="pl. 100g, 1L" />
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Szavatosság (nap)</label>
+                        <input type="number" id="sqm-expiry" min="1" placeholder="Nincs lejárat" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-600" />
+                    </div>
+                </div>
+            </div>
 
-    <div id="shopping-qty-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
-        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-100">
-            <h3 class="text-2xl font-black text-slate-800 mb-6">Termék adatai</h3>
-            
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Név *</label>
-                    <input type="text" id="sqm-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-700" />
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Márka</label>
-                    <input type="text" id="sqm-brand" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
-                </div>
-                <div class="flex gap-3">
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tömeg / Méret</label>
-                        <input type="text" id="sqm-weight" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" placeholder="pl. 100g, 1L" />
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Szavatosság (nap)</label>
-                        <input type="number" id="sqm-expiry" min="1" placeholder="Nincs lejárat" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-600" />
-                    </div>
-                </div>
-            </div>
+            <div class="space-y-4 mb-8 pt-4 border-t border-slate-100">
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 mb-2">Hány darabot vegyünk?</label>
+                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                        <button onclick="document.getElementById('sqm-req').value = Math.max(1, parseInt(document.getElementById('sqm-req').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
+                        <input type="number" id="sqm-req" value="1" min="1" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
+                        <button onclick="document.getElementById('sqm-req').value = parseInt(document.getElementById('sqm-req').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 mb-2 mt-6">Hány darab van most itthon?</label>
+                    <p class="text-[10px] text-slate-400 mb-3 leading-tight">Jelenleg a kamrában: <span id="sqm-current-home" class="font-bold text-indigo-500"></span> db. (Ha ez a szám alul eltér, automatikusan korrigáljuk a kamrád).</p>
+                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                        <button onclick="document.getElementById('sqm-home').value = Math.max(0, parseInt(document.getElementById('sqm-home').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
+                        <input type="number" id="sqm-home" value="0" min="0" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
+                        <button onclick="document.getElementById('sqm-home').value = parseInt(document.getElementById('sqm-home').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
+                    </div>
+                </div>
+            </div>
 
-            <div class="space-y-4 mb-8 pt-4 border-t border-slate-100">
-                <div>
-                    <label class="block text-sm font-bold text-slate-500 mb-2">Hány darabot vegyünk?</label>
-                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-                        <button onclick="document.getElementById('sqm-req').value = Math.max(1, parseInt(document.getElementById('sqm-req').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
-                        <input type="number" id="sqm-req" value="1" min="1" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
-                        <button onclick="document.getElementById('sqm-req').value = parseInt(document.getElementById('sqm-req').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
-                    </div>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-bold text-slate-500 mb-2 mt-6">Hány darab van most itthon?</label>
-                    <p class="text-[10px] text-slate-400 mb-3 leading-tight">Jelenleg a kamrában: <span id="sqm-current-home" class="font-bold text-indigo-500"></span> db. (Ha ez a szám alul eltér, automatikusan korrigáljuk a kamrád).</p>
-                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-                        <button onclick="document.getElementById('sqm-home').value = Math.max(0, parseInt(document.getElementById('sqm-home').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
-                        <input type="number" id="sqm-home" value="0" min="0" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
-                        <button onclick="document.getElementById('sqm-home').value = parseInt(document.getElementById('sqm-home').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
-                    </div>
-                </div>
-            </div>
+            <div class="flex gap-4">
+                <button onclick="closeShoppingQtyModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
+                <button onclick="confirmShoppingAdd()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Hozzáadás</button>
+            </div>
+        </div>
+    </div>
 
+    <!-- Szerkesztés Modal (Bevásárlólista) -->
+    <div id="shopping-edit-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-100">
+            <h3 class="text-2xl font-black text-slate-800 mb-6">Listán lévő tétel</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Név *</label>
+                    <input type="text" id="sem-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-700" />
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Márka</label>
+                    <input type="text" id="sem-brand" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tömeg / Méret</label>
+                        <input type="text" id="sem-weight" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Szavatosság (nap)</label>
+                        <input type="number" id="sem-expiry" min="1" placeholder="Nincs lejárat" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-600" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 mb-8 pt-4 border-t border-slate-100">
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 mb-2">Szükséges darabszám</label>
+                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                        <button onclick="document.getElementById('sem-req').value = Math.max(1, parseInt(document.getElementById('sem-req').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
+                        <input type="number" id="sem-req" value="1" min="1" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
+                        <button onclick="document.getElementById('sem-req').value = parseInt(document.getElementById('sem-req').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="closeShoppingEditModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
+                <button onclick="confirmShoppingEdit()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Mentés</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Csoportos Import Modal -->
+    <div id="import-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-lg w-full border border-slate-100">
+            <h3 class="text-2xl font-black text-slate-800 mb-2">Adatbázis bővítése</h3>
+            <p class="text-sm text-slate-500 mb-6 leading-relaxed">
+                Több terméket is hozzáadhatsz egyszerre, hogy a keresőből könnyen választhatóak legyenek.<br><br>
+                <span class="font-bold">Így használd:</span><br>
+                <code class="bg-slate-100 px-2 py-1 rounded text-indigo-600 font-bold mt-1 inline-block">Márka: Lidl Helyben sütött, Név: Sokmagvas cipó, Tömeg: 350 g</code><br>
+                <span class="text-xs text-slate-400 mt-1 block">Vagy régi formátumban: Lidl;Sokmagvas cipó;350g</span>
+            </p>
+            <textarea id="import-textarea" class="w-full h-56 p-4 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm resize-none mb-6" placeholder="Márka: Gyermelyi, Név: Milka csoki, Tömeg: 100g&#10;Márka: Lidl, Név: Cipó, Tömeg: 350g..."></textarea>
+            <div class="flex gap-4">
+                <button onclick="closeImportModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
+                <button onclick="executeBulkImport()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Feltöltés</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Akciók Jelszó Modal -->
+    <div id="promo-auth-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-100 text-center">
+            <i data-lucide="lock" class="w-12 h-12 text-indigo-500 mx-auto mb-4"></i>
+            <h3 class="text-2xl font-black text-slate-800 mb-2">Titkos Akciók</h3>
+            <p class="text-sm text-slate-500 mb-6">Kérlek add meg a jelszót a belépéshez!</p>
+            <input type="password" id="promo-password" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl mb-4 text-center text-xl font-bold outline-none focus:ring-2 ring-indigo-50" placeholder="****">
             <div class="flex gap-4">
-                <button onclick="closeShoppingQtyModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
-                <button onclick="confirmShoppingAdd()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Hozzáadás</button>
+                <button onclick="closePromoAuthModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
+                <button onclick="checkPromoAuth()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Belépés</button>
             </div>
         </div>
     </div>
 
-    <div id="shopping-edit-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
-        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full border border-slate-100">
-            <h3 class="text-2xl font-black text-slate-800 mb-6">Listán lévő tétel</h3>
-            
-            <div class="space-y-4 mb-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Név *</label>
-                    <input type="text" id="sem-name" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-700" />
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Márka</label>
-                    <input type="text" id="sem-brand" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
-                </div>
-                <div class="flex gap-3">
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Tömeg / Méret</label>
-                        <input type="text" id="sem-weight" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600" />
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Szavatosság (nap)</label>
-                        <input type="number" id="sem-expiry" min="1" placeholder="Nincs lejárat" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 ring-indigo-50 font-bold text-slate-600" />
-                    </div>
-                </div>
-            </div>
+    <!-- Tartalom -->
+    <main class="p-4 md:p-10 max-w-6xl mx-auto">
+        <!-- LELTÁR -->
+        <section id="tab-inventory" class="tab-content fade-in space-y-8">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800">Saját Készlet</h2>
+                    <p id="inventory-count" class="text-slate-500 font-semibold mt-1">Betöltés...</p>
+                </div>
+                <div class="relative w-full sm:w-72">
+                    <input type="text" id="inventory-search" oninput="renderInventoryAndExpired()" placeholder="Keresés a kamrában..." class="w-full p-3 pl-10 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-indigo-50 transition-all font-medium">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                </div>
+            </header>
+            <div id="inventory-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+        </section>
 
-            <div class="space-y-4 mb-8 pt-4 border-t border-slate-100">
-                <div>
-                    <label class="block text-sm font-bold text-slate-500 mb-2">Szükséges darabszám</label>
-                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-                        <button onclick="document.getElementById('sem-req').value = Math.max(1, parseInt(document.getElementById('sem-req').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
-                        <input type="number" id="sem-req" value="1" min="1" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
-                        <button onclick="document.getElementById('sem-req').value = parseInt(document.getElementById('sem-req').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
-                    </div>
-                </div>
-            </div>
+        <!-- STATISZTIKA FÜL (Javítva: Vásárlási Gyakoriság) -->
+        <section id="tab-stats" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800">Vásárlási Gyakoriság</h2>
+                    <p class="text-slate-500 font-semibold mt-1">Elemzés arról, hogy milyen időközönként kerülnek be a termékek a raktárba.</p>
+                </div>
+            </header>
 
-            <div class="flex gap-4">
-                <button onclick="closeShoppingEditModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
-                <button onclick="confirmShoppingEdit()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Mentés</button>
-            </div>
-        </div>
-    </div>
+            <div class="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-100">
+                                <th class="p-5 font-bold">Termék adatai</th>
+                                <th class="p-5 font-bold text-center">Összes vásárlás</th>
+                                <th class="p-5 font-bold text-center">Beszerzési ütem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stats-tbody" class="divide-y divide-slate-50">
+                            <!-- Statisztika adatok -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-    <div id="import-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 fade-in">
-        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-lg w-full border border-slate-100">
-            <h3 class="text-2xl font-black text-slate-800 mb-2">Adatbázis bővítése</h3>
-            <p class="text-sm text-slate-500 mb-6 leading-relaxed">
-                Több terméket is hozzáadhatsz egyszerre, hogy a keresőből könnyen választhatóak legyenek.<br><br>
-                <span class="font-bold">Így használd:</span><br>
-                <code class="bg-slate-100 px-2 py-1 rounded text-indigo-600 font-bold mt-1 inline-block">Márka: Lidl Helyben sütött, Név: Sokmagvas cipó, Tömeg: 350 g</code><br>
-                <span class="text-xs text-slate-400 mt-1 block">Vagy régi formátumban: Lidl;Sokmagvas cipó;350g</span>
-            </p>
-            <textarea id="import-textarea" class="w-full h-56 p-4 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm resize-none mb-6" placeholder="Márka: Gyermelyi, Név: Milka csoki, Tömeg: 100g&#10;Márka: Lidl, Név: Cipó, Tömeg: 350g..."></textarea>
-            <div class="flex gap-4">
-                <button onclick="closeImportModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
-                <button onclick="executeBulkImport()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Feltöltés</button>
-            </div>
-        </div>
-    </div>
+        <!-- SAJÁT ÉTELEK / RECEPTEK FÜL -->
+        <section id="tab-recipes" class="tab-content hidden fade-in space-y-8">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-800">Saját Ételek</h2>
+                    <p class="text-slate-500 font-semibold mt-1">Mentett receptek és hozzávalók listája.</p>
+                </div>
+                <div class="relative w-full sm:w-72">
+                    <input type="text" id="recipe-search" oninput="renderRecipes()" placeholder="Keresés az ételek között..." class="w-full p-3 pl-10 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-indigo-50 transition-all font-medium">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                </div>
+            </header>
 
-    <div id="promo-auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] hidden items-center justify-center p-4 fade-in">
-        <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center">
-            <div class="bg-indigo-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600">
-                <i data-lucide="lock" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-2xl font-black text-slate-800 mb-2">Védett tartalom</h3>
-            <p class="text-slate-500 text-sm mb-6">Add meg a jelszót az Akciók megtekintéséhez.</p>
-            <input type="password" id="promo-pass-input" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-center font-black text-2xl outline-none focus:ring-4 ring-indigo-50 mb-6" placeholder="****">
-            <div class="flex gap-3">
-                <button onclick="closePromoAuth()" class="flex-1 py-4 rounded-xl bg-slate-100 text-slate-500 font-bold">Mégse</button>
-                <button onclick="checkPromoAuth()" class="flex-1 py-4 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-100">Belépés</button>
-            </div>
-        </div>
-    </div>
+            <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-lg">
+                <h3 class="text-xl font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="utensils" class="w-5 h-5 text-indigo-500"></i> Új étel felvitele</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Étel neve</label>
+                        <input type="text" id="new-recipe-name" placeholder="pl. Bolognai spagetti" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-indigo-50 font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Hozzávalók és pontos mennyiségek</label>
+                        <textarea id="new-recipe-ingredients" placeholder="pl. 500g Darálthús, 1 üveg Paradicsomszósz, 500g Tészta" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600 resize-none h-16"></textarea>
+                    </div>
+                </div>
+                <button onclick="addRecipe()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-md active:scale-[0.98]">Mentés az Étlapra</button>
+            </div>
+            <div id="recipes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+        </section>
 
-    <main class="p-4 md:p-10 max-w-6xl mx-auto">
-        <section id="tab-inventory" class="tab-content fade-in space-y-8">
-            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 class="text-3xl font-black text-slate-800">Saját Készlet</h2>
-                    <p id="inventory-count" class="text-slate-500 font-semibold mt-1">Betöltés...</p>
-                </div>
-                <div class="relative w-full sm:w-72">
-                    <input type="text" id="inventory-search" oninput="renderInventoryAndExpired()" placeholder="Keresés a kamrában..." class="w-full p-3 pl-10 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-indigo-50 transition-all font-medium">
-                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
-                </div>
-            </header>
-            <div id="inventory-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
-        </section>
+        <!-- LEJÁRT TERMÉKEK -->
+        <section id="tab-expired" class="tab-content hidden fade-in space-y-8">
+            <header>
+                <h2 class="text-3xl font-black text-rose-600">Lejárt termékek</h2>
+                <p class="text-slate-500 font-semibold mt-1">Ezek a termékek lejártak. 10 nap után automatikusan törlődnek.</p>
+            </header>
+            <div id="expired-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
+        </section>
 
-        <section id="tab-stats" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
-            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 class="text-3xl font-black text-slate-800">Vásárlási Gyakoriság</h2>
-                    <p class="text-slate-500 font-semibold mt-1">Elemzés arról, hogy milyen időközönként kerülnek be a termékek a raktárba.</p>
-                </div>
-            </header>
+        <!-- HOZZÁADÁS -->
+        <section id="tab-add" class="tab-content hidden fade-in max-w-4xl mx-auto space-y-8">
+            <!-- MEGVÁSÁROLT TERMÉKEK JÓVÁHAGYÁSA -->
+            <div class="">
+                <h3 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="check-square" class="w-6 h-6 text-emerald-500"></i> Megvásárolt termékek bevitele</h3>
+                <p class="text-slate-500 text-sm mb-6">A bevásárlólistán kipipált termékek itt várnak a kamrába helyezésre. Add meg a lejárati dátumokat!</p>
+                <div id="purchased-items-container" class="space-y-3"></div>
+            </div>
 
-            <div class="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-widest border-b border-slate-100">
-                                <th class="p-5 font-bold">Termék adatai</th>
-                                <th class="p-5 font-bold text-center">Összes vásárlás</th>
-                                <th class="p-5 font-bold text-center">Beszerzési ütem</th>
-                            </tr>
-                        </thead>
-                        <tbody id="stats-tbody" class="divide-y divide-slate-50">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6 max-w-2xl mx-auto mt-12">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="bg-indigo-100 p-3 rounded-2xl text-indigo-600"><i data-lucide="clipboard-edit" class="w-6 h-6"></i></div>
+                    <h2 class="text-2xl font-black text-slate-800">Egyéb termékek</h2>
+                </div>
+                <p class="text-slate-500 text-sm italic">Példa: Márka: Milka, Név: Csoki, Darab: 3, Lejárat: 2026-10-10</p>
+                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a hagyományos listát... Ha olyan terméket írsz be, ami felül megvásároltként várakozik, a rendszer okosan összeköti őket!"></textarea>
+                <button id="parse-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-3xl font-black text-lg shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">Mentés a Kamrába</button>
+            </div>
+        </section>
 
-        <section id="tab-promotions" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
+        <!-- BEVÁSÁRLÁS -->
+        <section id="tab-shopping" class="tab-content hidden fade-in max-w-3xl mx-auto space-y-8">
+            <header>
+                <h2 class="text-3xl font-black text-slate-800">Mit vegyünk?</h2>
+                <p class="text-slate-500 font-semibold">Keresés a közös adatbázisban.</p>
+            </header>
+
+            <div class="relative group">
+                <input type="text" id="shopping-search" oninput="handleShoppingSearch()" placeholder="Keresés (pl. Pogácsa, Kenyér...)" class="w-full p-6 pl-14 bg-white border border-slate-200 rounded-3xl shadow-lg outline-none group-focus-within:ring-4 ring-indigo-50 transition-all">
+                <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6"></i>
+                <div id="shopping-search-results" class="absolute w-full bg-white mt-3 rounded-3xl shadow-2xl border border-slate-50 z-50 overflow-hidden"></div>
+            </div>
+            
+            <div id="shopping-list-container" class="space-y-3"></div>
+
+            <!-- AI Ajánló -->
+            <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 shadow-sm mt-8">
+                <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-indigo-900 flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-indigo-500"></i> AI Bevásárlólista Ajánló</h3>
+                        <p class="text-xs text-indigo-600/70 mt-1 font-medium">A statisztikád és a jelenlegi készleted alapján kitalálja, mire van szükséged.</p>
+                    </div>
+                    <button onclick="handleAiShoppingRecommendation()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 shrink-0 flex items-center justify-center gap-2">
+                        Ajánlást kérek
+                    </button>
+                </div>
+                <div id="ai-shopping-response-container" class="hidden mt-6 pt-6 border-t border-indigo-100/50"></div>
+            </div>
+
+            <div class="pt-16 border-t border-slate-200 flex flex-col items-center gap-4">
+                <button onclick="bulkImportMaster()" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-xs font-bold flex items-center gap-2 transition-colors">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Adatbázis bővítése / Import
+                </button>
+            </div>
+        </section>
+
+        <!-- AKCIÓK FÜL -->
+        <section id="tab-promos" class="tab-content hidden fade-in max-w-4xl mx-auto space-y-8">
             <header>
-                <h2 class="text-3xl font-black text-slate-800">Heti Akciók</h2>
-                <p class="text-slate-500 font-semibold mt-1">Töltsd fel a bolti akciókat, az AI pedig segít dönteni a készleted alapján.</p>
+                <h2 class="text-3xl font-black text-slate-800">Heti Akciók Elemzése</h2>
+                <p class="text-slate-500 font-semibold mt-1">Töltsd fel az akciós újság szövegét, az AI összeveti a kamráddal.</p>
             </header>
 
-            <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6">
+            <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-lg space-y-6">
                 <div>
-                    <label class="block text-sm font-bold text-slate-600 mb-2">Akciós szöveg / lista feltöltése</label>
-                    <textarea id="promo-upload-text" class="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-indigo-50 font-mono text-sm transition-all" placeholder="Másold be ide az akciós TXT szövegét..."></textarea>
+                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Akciós szöveg / TXT tartalma</label>
+                    <textarea id="promo-input-text" class="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a bolt akciós szövegét..."></textarea>
                 </div>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <button onclick="savePromotion()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 transition-all">
-                        <i data-lucide="upload-cloud" class="w-5 h-5"></i> Akciók rögzítése
-                    </button>
-                    <button onclick="analyzePromotions()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all">
-                        <i data-lucide="sparkles" class="w-5 h-5"></i> AI Elemzés kérése
+                <div class="flex gap-4">
+                    <button onclick="analyzeAndSavePromos()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 active:scale-95">
+                        <i data-lucide="wand-2" class="w-5 h-5"></i> Elemzés és Mentés
                     </button>
                 </div>
             </div>
 
-            <div id="promo-ai-response" class="hidden fade-in">
-                <div class="bg-white p-6 md:p-10 rounded-[2.5rem] border-2 border-indigo-50 shadow-sm prose prose-indigo max-w-none" id="promo-ai-content"></div>
-            </div>
+            <!-- AI Válasz helye -->
+            <div id="promo-ai-response" class="hidden mt-6 bg-white p-6 rounded-[2.5rem] border border-indigo-100 shadow-sm prose prose-indigo max-w-none text-sm"></div>
 
-            <div class="bg-indigo-50 p-6 rounded-[2.5rem] border border-indigo-100 space-y-4">
-                <h3 class="font-black text-indigo-900 flex items-center gap-2"><i data-lucide="message-square" class="w-5 h-5"></i> Kérdezz az akciókról</h3>
+            <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 mt-8">
+                <h3 class="text-sm font-black text-indigo-900 mb-4 flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4"></i> Kérdezz a mentett akciókról</h3>
                 <div class="flex gap-2">
-                    <input type="text" id="promo-chat-input" class="flex-1 p-4 rounded-xl border-none outline-none text-sm font-medium" placeholder="Példa: Olcsóbb a csirkecomb vagy a sajt?">
-                    <button onclick="askPromoAI()" class="bg-indigo-600 text-white px-6 rounded-xl font-bold"><i data-lucide="send" class="w-5 h-5"></i></button>
+                    <input type="text" id="promo-chat-query" placeholder="Akciós a csirkecomb?" class="flex-1 p-4 rounded-xl border border-indigo-100 outline-none text-sm focus:ring-2 ring-indigo-200 bg-white">
+                    <button onclick="askPromoAi()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-bold transition-all"><i data-lucide="send" class="w-5 h-5"></i></button>
                 </div>
+                <div id="promo-chat-response" class="hidden mt-4 p-4 bg-white rounded-2xl border border-indigo-50 text-sm prose prose-indigo max-w-none"></div>
             </div>
 
-            <div class="space-y-4">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest px-2">Aktív akciós listák</h3>
-                <div id="promo-db-list" class="space-y-3"></div>
+            <!-- Aktuális feltöltött fájlok listája -->
+            <div class="pt-8 border-t border-slate-200">
+                <h4 class="text-xs font-bold text-slate-400 uppercase mb-4">Aktuálisan tárolt akciós adatok</h4>
+                <div id="promo-files-container" class="space-y-3"></div>
             </div>
         </section>
 
-        <section id="tab-recipes" class="tab-content hidden fade-in space-y-8">
-            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 class="text-3xl font-black text-slate-800">Saját Ételek</h2>
-                    <p class="text-slate-500 font-semibold mt-1">Mentett receptek és hozzávalók listája.</p>
-                </div>
-                <div class="relative w-full sm:w-72">
-                    <input type="text" id="recipe-search" oninput="renderRecipes()" placeholder="Keresés az ételek között..." class="w-full p-3 pl-10 bg-white border border-slate-200 rounded-2xl shadow-sm outline-none focus:ring-2 ring-indigo-50 transition-all font-medium">
-                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
-                </div>
-            </header>
+        <!-- SÉF SEGÉD -->
+        <section id="tab-chef" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
+            <header>
+                <h2 class="text-3xl font-black text-slate-800">Digitális Séf</h2>
+                <p class="text-slate-500 font-semibold">Tippek a kamrádban lévő alapanyagokhoz és a saját ételeidhez.</p>
+            </header>
+            <div class="flex gap-3 bg-white p-3 rounded-[2rem] shadow-lg border border-slate-100">
+                <input type="text" id="ai-prompt" placeholder="Milyen pogácsát süssek?" class="flex-1 p-4 pl-6 border-none outline-none text-lg">
+                <button onclick="handleChefQuery()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-2xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
+                    <span class="hidden sm:inline">Kérdezés</span> <i data-lucide="sparkles" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="chef-response-container" class="min-h-[200px]">
+                <div class="p-20 text-center text-slate-300 font-medium italic">Kérdezz valamit a séftől, vagy kérj tippeket a készlet és a saját ételeid alapján...</div>
+            </div>
+        </section>
+    </main>
 
-            <div class="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-lg">
-                <h3 class="text-xl font-black text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="utensils" class="w-5 h-5 text-indigo-500"></i> Új étel felvitele</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Étel neve</label>
-                        <input type="text" id="new-recipe-name" placeholder="pl. Bolognai spagetti" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-indigo-50 font-bold">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Hozzávalók és pontos mennyiségek</label>
-                        <textarea id="new-recipe-ingredients" placeholder="pl. 500g Darálthús, 1 üveg Paradicsomszósz, 500g Tészta" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 ring-indigo-50 font-semibold text-slate-600 resize-none h-16"></textarea>
-                    </div>
-                </div>
-                <button onclick="addRecipe()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-md active:scale-[0.98]">Mentés az Étlapra</button>
-            </div>
-            <div id="recipes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
-        </section>
+    <!-- JS LOGIKA -->
+    <script>
+        let dbData = {
+            inventory: [],
+            masterItems: [],
+            shoppingList: [],
+            recipes: [],
+            consumption: [],
+            purchaseHistory: [], // ÚJ: Vásárlási napló
+            promos: []
+        };
+        
+        let activeTab = 'inventory';
+        let isAiLoading = false;
+        let isPromoAuth = false;
+        let currentShoppingItem = null; 
+        let currentEditShoppingId = null;
 
-        <section id="tab-expired" class="tab-content hidden fade-in space-y-8">
-            <header>
-                <h2 class="text-3xl font-black text-rose-600">Lejárt termékek</h2>
-                <p class="text-slate-500 font-semibold mt-1">Ezek a termékek lejártak. 10 nap után automatikusan törlődnek.</p>
-            </header>
-            <div id="expired-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"></div>
-        </section>
+        const loadingBadge = document.getElementById('db-loading');
+        const inventoryGrid = document.getElementById('inventory-grid');
+        const inventoryCount = document.getElementById('inventory-count');
+        const searchInput = document.getElementById('shopping-search');
+        const searchResults = document.getElementById('shopping-search-results');
+        const shoppingListContainer = document.getElementById('shopping-list-container');
+        const purchasedItemsContainer = document.getElementById('purchased-items-container');
+        const aiPromptInput = document.getElementById('ai-prompt');
+        const chefResponseContainer = document.getElementById('chef-response-container');
+        const parseInput = document.getElementById('parse-input');
+        const tabContents = document.querySelectorAll('.tab-content');
 
-        <section id="tab-add" class="tab-content hidden fade-in max-w-4xl mx-auto space-y-8">
-            <div class="">
-                <h3 class="text-2xl font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="check-square" class="w-6 h-6 text-emerald-500"></i> Megvásárolt termékek bevitele</h3>
-                <p class="text-slate-500 text-sm mb-6">A bevásárlólistán kipipált termékek itt várnak a kamrába helyezésre. Add meg a lejárati dátumokat!</p>
-                <div id="purchased-items-container" class="space-y-3"></div>
-            </div>
-
-            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl space-y-6 max-w-2xl mx-auto mt-12">
-                <div class="flex items-center gap-4 mb-4">
-                    <div class="bg-indigo-100 p-3 rounded-2xl text-indigo-600"><i data-lucide="clipboard-edit" class="w-6 h-6"></i></div>
-                    <h2 class="text-2xl font-black text-slate-800">Egyéb termékek</h2>
-                </div>
-                <p class="text-slate-500 text-sm italic">Példa: Márka: Milka, Név: Csoki, Darab: 3, Lejárat: 2026-10-10</p>
-                <textarea id="parse-input" class="w-full h-48 p-6 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm" placeholder="Másold be ide a hagyományos listát... Ha olyan terméket írsz be, ami felül megvásároltként várakozik, a rendszer okosan összeköti őket!"></textarea>
-                <button id="parse-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-3xl font-black text-lg shadow-lg shadow-indigo-100 transition-all active:scale-[0.98]">Mentés a Kamrába</button>
-            </div>
-        </section>
-
-        <section id="tab-shopping" class="tab-content hidden fade-in max-w-3xl mx-auto space-y-8">
-            <header>
-                <h2 class="text-3xl font-black text-slate-800">Mit vegyünk?</h2>
-                <p class="text-slate-500 font-semibold">Keresés a közös adatbázisban.</p>
-            </header>
-
-            <div class="relative group">
-                <input type="text" id="shopping-search" oninput="handleShoppingSearch()" placeholder="Keresés (pl. Pogácsa, Kenyér...)" class="w-full p-6 pl-14 bg-white border border-slate-200 rounded-3xl shadow-lg outline-none group-focus-within:ring-4 ring-indigo-50 transition-all">
-                <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6"></i>
-                <div id="shopping-search-results" class="absolute w-full bg-white mt-3 rounded-3xl shadow-2xl border border-slate-50 z-50 overflow-hidden"></div>
-            </div>
-            
-            <div id="shopping-list-container" class="space-y-3"></div>
-
-            <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 shadow-sm mt-8">
-                <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                    <div>
-                        <h3 class="text-lg font-bold text-indigo-900 flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-indigo-500"></i> AI Bevásárlólista Ajánló</h3>
-                        <p class="text-xs text-indigo-600/70 mt-1 font-medium">A statisztikád és a jelenlegi készleted alapján kitalálja, mire van szükséged.</p>
-                    </div>
-                    <button onclick="handleAiShoppingRecommendation()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95 shrink-0 flex items-center justify-center gap-2">
-                        Ajánlást kérek
-                    </button>
-                </div>
-                <div id="ai-shopping-response-container" class="hidden mt-6 pt-6 border-t border-indigo-100/50"></div>
-            </div>
-
-            <div class="pt-16 border-t border-slate-200 flex flex-col items-center gap-4">
-                <button onclick="bulkImportMaster()" class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-xs font-bold flex items-center gap-2 transition-colors">
-                    <i data-lucide="upload-cloud" class="w-4 h-4"></i> Adatbázis bővítése / Import
-                </button>
-            </div>
-        </section>
-
-        <section id="tab-chef" class="tab-content hidden fade-in space-y-8 max-w-4xl mx-auto">
-            <header>
-                <h2 class="text-3xl font-black text-slate-800">Digitális Séf</h2>
-                <p class="text-slate-500 font-semibold">Tippek a kamrádban lévő alapanyagokhoz és a saját ételeidhez.</p>
-            </header>
-            <div class="flex gap-3 bg-white p-3 rounded-[2rem] shadow-lg border border-slate-100">
-                <input type="text" id="ai-prompt" placeholder="Milyen pogácsát süssek?" class="flex-1 p-4 pl-6 border-none outline-none text-lg">
-                <button onclick="handleChefQuery()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-2xl font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                    <span class="hidden sm:inline">Kérdezés</span> <i data-lucide="sparkles" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div id="chef-response-container" class="min-h-[200px]">
-                <div class="p-20 text-center text-slate-300 font-medium italic">Kérdezz valamit a séftől, vagy kérj tippeket a készlet és a saját ételeid alapján...</div>
-            </div>
-        </section>
-    </main>
-
-    <script>
-        let dbData = {
-            inventory: [],
-            masterItems: [],
-            shoppingList: [],
-            recipes: [],
-            consumption: [],
-            purchaseHistory: [],
-            promotions: [] // ÚJ: Akciók tárolása
-        };
-        
-        let activeTab = 'inventory';
-        let isAiLoading = false;
-        let currentShoppingItem = null; 
-        let currentEditShoppingId = null;
-
-        const loadingBadge = document.getElementById('db-loading');
-        const inventoryGrid = document.getElementById('inventory-grid');
-        const inventoryCount = document.getElementById('inventory-count');
-        const searchInput = document.getElementById('shopping-search');
-        const searchResults = document.getElementById('shopping-search-results');
-        const shoppingListContainer = document.getElementById('shopping-list-container');
-        const purchasedItemsContainer = document.getElementById('purchased-items-container');
-        const aiPromptInput = document.getElementById('ai-prompt');
-        const chefResponseContainer = document.getElementById('chef-response-container');
-        const parseInput = document.getElementById('parse-input');
-        const tabContents = document.querySelectorAll('.tab-content');
-
-        // --- FETCH WITH RETRY ---
-        async function fetchWithRetry(url, options, retries = 5) {
-            let lastError;
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const res = await fetch(url, options);
-                    if (!res.ok) throw new Error(`Hálózati hiba: ${res.status}`);
-                    const data = await res.json();
-                    if (data && data._error) throw new Error(data.üzenet || "Szerver hiba");
-                    return data;
-                } catch (e) {
-                    lastError = e;
-                    if (i === retries - 1) throw lastError;
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-            }
-        }
-
-        // --- ADATKEZELÉS (API) ---
-        async function loadItems() {
-            loadingBadge.classList.add('active');
-            try {
-                const data = await fetchWithRetry('/api/db', { method: 'GET' }, 3);
-                
-                if (Array.isArray(data)) {
-                    dbData.inventory = data;
-                } else if (data && typeof data === 'object') {
-                    dbData.inventory = data.inventory || [];
-                    dbData.masterItems = data.masterItems || [];
-                    dbData.shoppingList = data.shoppingList || [];
-                    dbData.recipes = data.recipes || [];
-                    dbData.consumption = data.consumption || [];
-                    dbData.purchaseHistory = data.purchaseHistory || [];
-                    dbData.promotions = data.promotions || [];
-                }
-                
-                cleanupAndRender();
-                renderShoppingList();
-                renderPurchasedItems();
-                renderRecipes();
-                renderStats();
-                cleanupOldPromos(); // Akciók automatikus törlése
-                renderPromoList();
-            } catch (e) {
-                document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold">Nem sikerült kapcsolódni az adatbázishoz. (${e.message})</span>`;
-            } finally {
-                loadingBadge.classList.remove('active');
-            }
-        }
-
-        async function saveItems() {
-            loadingBadge.classList.add('active');
-            cleanupAndRender();
-            renderShoppingList();
-            renderPurchasedItems();
-            renderRecipes();
-            renderStats();
-            renderPromoList();
-            try {
-                await fetchWithRetry('/api/db', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: dbData })
-                }, 3);
-            } catch (e) {
-                console.error("Hiba mentéskor", e);
-            } finally {
-                loadingBadge.classList.remove('active');
-            }
-        }
-
-        const generateId = () => Date.now().toString() + Math.random().toString(36).substring(2);
-
-        // --- GLOBÁLIS RESET ---
-        window.clearAllData = () => {
-            if(confirm("VIGYÁZAT! Ezzel minden adatot azonnal és véglegesen törölsz a felhőből. Biztosan folytatod?")) {
-                dbData = { inventory: [], masterItems: [], shoppingList: [], recipes: [], consumption: [], purchaseHistory: [], promotions: [] };
-                saveItems();
-                alert("A Kamra sikeresen alaphelyzetbe állt!");
-                switchTab('inventory');
+        // --- AKCIÓK (PROMOS) LOGIKA ---
+        window.handlePromoTabClick = () => {
+            if (!isPromoAuth) {
+                document.getElementById('promo-auth-modal').classList.remove('hidden');
+                document.getElementById('promo-auth-modal').classList.add('flex');
+            } else {
+                switchTab('promos');
             }
         };
 
-        // --- AKCIÓK KEZELÉSE ---
-        window.openPromoTab = () => {
-            const modal = document.getElementById('promo-auth-modal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.getElementById('promo-pass-input').value = '';
-            document.getElementById('promo-pass-input').focus();
-        };
-
-        window.closePromoAuth = () => {
+        window.closePromoAuthModal = () => {
             document.getElementById('promo-auth-modal').classList.add('hidden');
             document.getElementById('promo-auth-modal').classList.remove('flex');
         };
 
         window.checkPromoAuth = () => {
-            const val = document.getElementById('promo-pass-input').value;
-            if(val === '42') {
-                closePromoAuth();
-                switchTab('promotions');
+            if (document.getElementById('promo-password').value === '42') {
+                isPromoAuth = true;
+                closePromoAuthModal();
+                switchTab('promos');
+                document.getElementById('promo-password').value = '';
             } else {
                 alert('Hibás jelszó!');
             }
         };
 
-        window.savePromotion = () => {
-            const text = document.getElementById('promo-upload-text').value.trim();
-            if(!text) return;
-            
-            dbData.promotions.push({
-                id: generateId(),
-                content: text,
-                addedAt: new Date().toISOString()
+        window.cleanupOldPromos = () => {
+            if (!dbData.promos) dbData.promos = [];
+            const now = new Date();
+            let changed = false;
+            dbData.promos = dbData.promos.filter(p => {
+                const added = new Date(p.addedAt);
+                let daysUntilThursday = (4 - added.getDay() + 7) % 7;
+                if (daysUntilThursday === 0) daysUntilThursday = 7;
+                let nextThursday = new Date(added);
+                nextThursday.setDate(added.getDate() + daysUntilThursday);
+                nextThursday.setHours(6, 0, 0, 0);
+                
+                if (now >= nextThursday) {
+                    changed = true;
+                    return false;
+                }
+                return true;
             });
-            document.getElementById('promo-upload-text').value = '';
-            saveItems();
+            if (changed) saveItems();
+        };
+
+        window.renderPromos = () => {
+            const container = document.getElementById('promo-files-container');
+            if (!container) return;
+            if (!dbData.promos || dbData.promos.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 italic bg-slate-50 p-6 rounded-2xl border border-slate-100 text-center">Nincs aktív akciós lista feltöltve.</div>';
+                return;
+            }
+            container.innerHTML = dbData.promos.map(p => `
+                <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-200 transition-colors">
+                    <div class="flex-1 truncate pr-4">
+                        <div class="text-[10px] text-indigo-400 font-bold uppercase mb-1 tracking-widest">Feltöltve: ${new Date(p.addedAt).toLocaleString('hu-HU')}</div>
+                        <div class="text-sm text-slate-700 truncate font-medium">${p.text.substring(0, 100)}...</div>
+                    </div>
+                    <button onclick="deletePromo('${p.id}')" class="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                </div>
+            `).join('');
+            lucide.createIcons();
         };
 
         window.deletePromo = (id) => {
             if(!confirm('Biztosan törlöd ezt az akciós listát?')) return;
-            dbData.promotions = dbData.promotions.filter(p => p.id !== id);
+            dbData.promos = dbData.promos.filter(p => p.id !== id);
             saveItems();
+            renderPromos();
         };
 
-        window.renderPromoList = () => {
-            const container = document.getElementById('promo-db-list');
-            if(!container) return;
+        window.analyzeAndSavePromos = async () => {
+            const text = document.getElementById('promo-input-text').value.trim();
+            if (!text) { alert('Kérlek írj be vagy másolj be akciós szöveget!'); return; }
+            if (isAiLoading) return;
             
-            container.innerHTML = dbData.promotions.map(p => `
-                <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex justify-between items-center group">
-                    <div class="flex-1 truncate pr-4">
-                        <span class="text-xs text-slate-400 font-bold">${new Date(p.addedAt).toLocaleDateString()}</span>
-                        <p class="text-sm text-slate-600 truncate font-medium">${p.content.substring(0, 80)}...</p>
-                    </div>
-                    <button onclick="deletePromo('${p.id}')" class="text-slate-300 hover:text-rose-500 transition-colors">
-                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    </button>
-                </div>
-            `).join('') || '<p class="text-center text-slate-400 text-sm italic py-4">Nincs feltöltött akciós lista.</p>';
-            lucide.createIcons();
+            // Mentés
+            if(!dbData.promos) dbData.promos = [];
+            dbData.promos.push({ id: generateId(), text: text, addedAt: new Date().toISOString() });
+            saveItems();
+            renderPromos();
+            document.getElementById('promo-input-text').value = '';
+
+            // AI Elemzés
+            isAiLoading = true;
+            const resContainer = document.getElementById('promo-ai-response');
+            resContainer.classList.remove('hidden');
+            resContainer.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-bold">Az AI elemzi az akciókat a készleted és a listád alapján...</div>`;
+
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const inv = activeItems.map(i => `${i.brand} ${i.name}`).join(', ');
+            const shop = dbData.shoppingList.filter(s => s.status === 'pending').map(s => s.name).join(', ');
+            const history = dbData.purchaseHistory.slice(-20).map(h => h.name).join(', ');
+
+            const prompt = `Itt egy akciós lista szövege: "${text}".\nA kamrámban ezek vannak: ${inv}.\nA bevásárlólistámon ezek vannak: ${shop}.\nEzeket szoktam venni: ${history}.\n\nKérlek, listázd ki:\n1. MI VAN A BEVÁSÁRLÓLISTÁMON ÉS MOST AKCIÓS? (Ezt emeld ki nagyon!)\n2. Mik azok az akciók, amikből érdemes lenne venni, mert szoktuk venni vagy fogytán van a kamrában?\n3. Egyéb jó ajánlatok ebből a szövegből. Formázd átláthatóan Markdownnal!`;
+
+            try {
+                const data = await fetchWithRetry('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                }, 5);
+                resContainer.innerHTML = marked.parse(data.reply);
+            } catch (e) {
+                resContainer.innerHTML = `<span class="text-rose-500 font-bold">Hiba történt az elemzés során.</span>`;
+            } finally {
+                isAiLoading = false;
+            }
         };
 
-        // Automatikus törlés csütörtök reggelre
-        function cleanupOldPromos() {
-            const now = new Date();
-            dbData.promotions = dbData.promotions.filter(p => {
-                const added = new Date(p.addedAt);
-                // Megkeressük a következő csütörtök reggel 6 órát
-                let nextThursday = new Date(added);
-                nextThursday.setDate(added.getDate() + (4 - added.getDay() + 7) % 7);
-                nextThursday.setHours(6, 0, 0, 0);
-
-                // Ha ma már elmúltunk azon a csütörtökön, töröljük
-                return now < nextThursday;
-            });
-        }
-
-        window.analyzePromotions = async () => {
-            if(dbData.promotions.length === 0) {
-                alert('Előbb tölts fel egy akciós szöveget!');
+        window.askPromoAi = async () => {
+            const q = document.getElementById('promo-chat-query').value.trim();
+            if (!q || isAiLoading) return;
+            if (!dbData.promos || dbData.promos.length === 0) {
+                alert('Nincs feltöltött akciós lista, amiből kérdezhetnél!');
                 return;
             }
             
             isAiLoading = true;
-            const resDiv = document.getElementById('promo-ai-response');
-            const resContent = document.getElementById('promo-ai-content');
-            resDiv.classList.remove('hidden');
-            resContent.innerHTML = '<div class="text-center py-10 animate-pulse text-indigo-500 font-black">Az AI éppen elemzi az akciókat...</div>';
-            
-            const activeInv = dbData.inventory.filter(i => i.status === 'active').map(i => `${i.brand} ${i.name}`).join(', ');
-            const shopList = dbData.shoppingList.filter(s => s.status === 'pending').map(s => s.name).join(', ');
-            const history = dbData.purchaseHistory.slice(-20).map(h => h.name).join(', ');
-            const promoText = dbData.promotions.map(p => p.content).join('\n---\n');
+            const resContainer = document.getElementById('promo-chat-response');
+            resContainer.classList.remove('hidden');
+            resContainer.innerHTML = `<div class="text-center animate-pulse text-indigo-500 font-medium">Gondolkodom...</div>`;
 
-            const prompt = `Akciós Elemzés Kérése:
-            Akciók: ${promoText}
-            Kamra Készlet: ${activeInv}
-            Bevásárlólista: ${shopList}
-            Gyakran vásárolt termékek: ${history}
-
-            Feladat: Írd ki az akciókat!
-            1. Emeld ki KÜLÖN és NAGYON feltűnően, ha a BEVÁSÁRLÓLISTÁMON lévő dolog akciós.
-            2. Javasolj akciókat a kamra és a vásárlási szokások alapján.
-            Használj Markdown formázást, legyen átlátható és magyar nyelvű.`;
+            const allPromos = dbData.promos.map(p => p.text).join('\n---\n');
+            const prompt = `Az alábbi akciós újságok szövegei alapján válaszolj:\n${allPromos}\n\nKérdés: ${q}`;
 
             try {
                 const data = await fetchWithRetry('/api/chat', {
@@ -584,335 +540,1129 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: prompt })
                 }, 5);
-                resContent.innerHTML = marked.parse(data.reply);
+                resContainer.innerHTML = marked.parse(data.reply);
             } catch (e) {
-                resContent.innerHTML = '<p class="text-rose-500">Hiba történt az AI elemzés során.</p>';
+                resContainer.innerHTML = `<span class="text-rose-500 font-bold">Hiba történt a válaszadás során.</span>`;
             } finally {
                 isAiLoading = false;
             }
         };
 
-        window.askPromoAI = async () => {
-            const q = document.getElementById('promo-chat-input').value.trim();
-            if(!q || dbData.promotions.length === 0) return;
-            
-            const resDiv = document.getElementById('promo-ai-response');
-            const resContent = document.getElementById('promo-ai-content');
-            resDiv.classList.remove('hidden');
-            resContent.innerHTML = '<div class="text-center py-4 text-indigo-500">AI válaszol...</div>';
+        // --- FETCH WITH RETRY ---
+        async function fetchWithRetry(url, options, retries = 5) {
+            let lastError;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, options);
+                    if (!res.ok) throw new Error(`Hálózati hiba: ${res.status}`);
+                    const data = await res.json();
+                    if (data && data._error) throw new Error(data.üzenet || "Szerver hiba");
+                    if (data && data.reply && data.reply.toLowerCase().includes("high demand")) throw new Error("High demand");
+                    return data;
+                } catch (e) {
+                    lastError = e;
+                    console.warn(`Hiba, újrapróbálkozás 2 másodperc múlva... (${i+1}/${retries}): ${e.message}`);
+                    if (i === retries - 1) throw lastError;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        }
 
-            const promoText = dbData.promotions.map(p => p.content).join('\n---\n');
-            const prompt = `Az alábbi akciós listák alapján válaszolj:
-            ${promoText}
-            
-            Kérdés: ${q}`;
+        // --- ADATKEZELÉS (API) VERCEL REDIS-SZEL ---
+        async function loadItems() {
+            loadingBadge.classList.add('active');
+            try {
+                const data = await fetchWithRetry('/api/db', { method: 'GET' }, 3);
+                
+                if (Array.isArray(data)) {
+                    dbData.inventory = data;
+                } else if (data && typeof data === 'object') {
+                    dbData.inventory = data.inventory || [];
+                    dbData.masterItems = data.masterItems || [];
+                    dbData.shoppingList = data.shoppingList || [];
+                    dbData.recipes = data.recipes || [];
+                    dbData.consumption = data.consumption || [];
+                    dbData.purchaseHistory = data.purchaseHistory || []; // Beolvasás javítva
+                    dbData.promos = data.promos || [];
+                }
+                
+                cleanupAndRender();
+                renderShoppingList();
+                renderPurchasedItems();
+                renderRecipes();
+                renderStats();
 
-            try {
-                const data = await fetchWithRetry('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: prompt })
-                });
-                resContent.innerHTML = marked.parse(data.reply);
-                document.getElementById('promo-chat-input').value = '';
-            } catch(e) { resContent.innerHTML = 'Hiba történt.'; }
-        };
+                if (dbData.promos && dbData.promos.length > 0) cleanupOldPromos();
+                renderPromos();
+            } catch (e) {
+                document.getElementById('inventory-count').innerHTML = `<span class="text-rose-600 font-bold">Nem sikerült kapcsolódni az adatbázishoz. (${e.message})</span>`;
+            } finally {
+                loadingBadge.classList.remove('active');
+            }
+        }
 
-        // --- AI & CHEF ---
-        window.handleChefQuery = async () => {
-            if (isAiLoading) return;
-            const prompt = aiPromptInput.value.trim();
-            isAiLoading = true;
-            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja...</div>`;
-            
-            const activeItems = dbData.inventory.filter(i => i.status === 'active');
-            const inv = activeItems.map(i => `- ${i.brand} ${i.name} (${i.quantity}db)`).join('\n');
-            const myRecipes = dbData.recipes.length > 0 ? dbData.recipes.map(r => `- ${r.name} (Hozzávalók: ${r.ingredients})`).join('\n') : "Még nincsenek saját mentett receptek.";
-            
-            const fullPrompt = `Kamra Készlet:\n${inv}\n\nMentett Receptjeim (ezekből is javasolhatsz a készlet alapján):\n${myRecipes}\n\nKérés: ${prompt || "Mit főzzek ma?"}`;
-            
-            try {
-                const data = await fetchWithRetry('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: fullPrompt })
-                }, 5);
-                
-                chefResponseContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border prose prose-indigo max-w-none shadow-sm">${marked.parse(data.reply)}</div>`;
-            } catch (e) {
-                chefResponseContainer.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">A Séf túlterhelt. Próbáld picit később!</div>`;
-            } finally {
-                isAiLoading = false;
-                aiPromptInput.value = '';
-            }
-        };
+        async function saveItems() {
+            loadingBadge.classList.add('active');
+            cleanupAndRender();
+            renderShoppingList();
+            renderPurchasedItems();
+            renderRecipes();
+            renderStats();
+            renderPromos();
+            try {
+                await fetchWithRetry('/api/db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: dbData })
+                }, 3);
+            } catch (e) {
+                console.error("Hiba mentéskor", e);
+            } finally {
+                loadingBadge.classList.remove('active');
+            }
+        }
 
-        window.handleAiShoppingRecommendation = async () => {
-            if (isAiLoading) return;
-            const container = document.getElementById('ai-shopping-response-container');
-            container.classList.remove('hidden');
-            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI listát ír...</div>`;
-            isAiLoading = true;
+        const generateId = () => Date.now().toString() + Math.random().toString(36).substring(2);
 
-            const activeItems = dbData.inventory.filter(i => i.status === 'active');
-            const invMap = {};
-            activeItems.forEach(i => {
-                const key = `${i.brand}:::${i.name}`;
-                invMap[key] = (invMap[key] || 0) + Number(i.quantity);
-            });
-            const invText = Object.entries(invMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: ${v} db`).join('\n') || "A kamra teljesen üres.";
+        // --- MINDEN ADAT TÖRLÉSE (GLOBÁLIS) ---
+        window.clearAllData = () => {
+            if(confirm("VIGYÁZAT! Ezzel minden adatot (Leltár, Bevásárlólista, Ételek, Statisztika) azonnal és véglegesen törölsz a felhőből. Biztosan folytatod?")) {
+                dbData = { inventory: [], masterItems: [], shoppingList: [], recipes: [], consumption: [], purchaseHistory: [], promos: [] };
+                saveItems();
+                alert("A Kamra sikeresen alaphelyzetbe állt!");
+                switchTab('inventory');
+            }
+        };
 
-            const consMap = {};
-            dbData.consumption.forEach(c => {
-                const key = `${c.brand}:::${c.name}`;
-                if (!consMap[key]) consMap[key] = { total: 0 };
-                consMap[key].total += Number(c.quantity);
-            });
-            const consText = Object.entries(consMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: összesen ${v.total} db fogyott eddig`).join('\n') || "Még nincs rögzített fogyasztás.";
+        // --- AI API HÍVÁSOK ---
+        window.handleChefQuery = async () => {
+            if (isAiLoading) return;
+            const prompt = aiPromptInput.value.trim();
+            isAiLoading = true;
+            chefResponseContainer.innerHTML = `<div class="p-12 text-center animate-pulse text-indigo-500 font-medium">A séf éppen a receptkönyveit bújja...</div>`;
+            
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const inv = activeItems.map(i => `- ${i.brand} ${i.name} (${i.quantity}db)`).join('\n');
+            const myRecipes = dbData.recipes.length > 0 ? dbData.recipes.map(r => `- ${r.name} (Hozzávalók: ${r.ingredients})`).join('\n') : "Még nincsenek saját mentett receptek.";
+            
+            const fullPrompt = `Kamra Készlet:\n${inv}\n\nMentett Receptjeim (ezekből is javasolhatsz a készlet alapján):\n${myRecipes}\n\nKérés: ${prompt || "Mit főzzek ma?"}`;
+            
+            try {
+                const data = await fetchWithRetry('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: fullPrompt })
+                }, 5);
+                
+                chefResponseContainer.innerHTML = `<div class="p-6 bg-white rounded-2xl border prose prose-indigo max-w-none shadow-sm">${marked.parse(data.reply)}</div>`;
+            } catch (e) {
+                chefResponseContainer.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">A Séf túlterhelt, a többszöri próbálkozás ellenére sem válaszolt. Próbáld picit később!</div>`;
+            } finally {
+                isAiLoading = false;
+                aiPromptInput.value = '';
+            }
+        };
 
-            const prompt = `Készíts egy bevásárlólistát a jelenlegi készlet és a fogyasztási statisztika alapján!
-            SZIGORÚ UTASÍTÁS: CSAK a listát add vissza! Formátum: "- [Terméknév] ([Márka]) - [Mennyiség] db"`;
+        window.handleAiShoppingRecommendation = async () => {
+            if (isAiLoading) return;
+            const container = document.getElementById('ai-shopping-response-container');
+            container.classList.remove('hidden');
+            container.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-medium">Az AI listát ír...</div>`;
+            isAiLoading = true;
 
-            try {
-                const data = await fetchWithRetry('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: prompt })
-                }, 5);
-                container.innerHTML = `<div class="bg-white p-6 rounded-2xl border border-indigo-100 prose prose-indigo max-w-none shadow-sm text-sm">${marked.parse(data.reply)}</div>`;
-            } catch (e) {
-                container.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">Hiba történt.</div>`;
-            } finally { isAiLoading = false; }
-        };
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const invMap = {};
+            activeItems.forEach(i => {
+                const key = `${i.brand}:::${i.name}`;
+                invMap[key] = (invMap[key] || 0) + Number(i.quantity);
+            });
+            const invText = Object.entries(invMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: ${v} db`).join('\n') || "A kamra teljesen üres.";
 
-        // --- STATISZTIKA & LOGS ---
-        window.logConsumption = (brand, name, quantity) => {
-            const today = new Date();
-            const dateStr = today.toISOString().split('T')[0];
-            dbData.consumption.push({ id: generateId(), brand, name, quantity, date: dateStr, timestamp: today.toISOString() });
-            saveItems(); 
-        };
+            const consMap = {};
+            dbData.consumption.forEach(c => {
+                const key = `${c.brand}:::${c.name}`;
+                if (!consMap[key]) consMap[key] = { total: 0 };
+                consMap[key].total += Number(c.quantity);
+            });
+            const consText = Object.entries(consMap).map(([k, v]) => `- ${k.replace(':::', ' ')}: összesen ${v.total} db fogyott eddig`).join('\n') || "Még nincs rögzített fogyasztás.";
 
-        window.logPurchase = (brand, name) => {
-            dbData.purchaseHistory.push({ brand: brand || "Nincs", name: name, date: new Date().toISOString() });
-        };
+            // SZIGORÚ PROMPT AZ AI-NAK: CSAK LISTA!
+            const prompt = `Készíts egy bevásárlólistát a jelenlegi készlet és a fogyasztási statisztika alapján!
 
-        window.renderStats = () => {
-            const tbody = document.getElementById('stats-tbody');
-            if (!tbody) return;
-            const grouped = {};
-            (dbData.purchaseHistory || []).forEach(p => {
-                const key = `${(p.brand || '').toLowerCase()}:::${(p.name || '').toLowerCase()}`;
-                if (!grouped[key]) grouped[key] = { brand: p.brand, name: p.name, dates: [] };
-                grouped[key].dates.push(new Date(p.date));
-            });
-            const results = Object.values(grouped).map(item => {
-                item.dates.sort((a, b) => a - b);
-                let freq = "Nincs elég adat";
-                if (item.dates.length > 1) {
-                    const diff = (item.dates[item.dates.length - 1] - item.dates[0]) / (1000 * 60 * 60 * 24);
-                    const avg = Math.round(diff / (item.dates.length - 1));
-                    freq = avg === 0 ? "Naponta veszed" : `Átlagosan ${avg} naponta`;
-                }
-                return { brand: item.brand, name: item.name, total: item.dates.length, frequency: freq };
-            }).sort((a, b) => b.total - a.total);
+Jelenlegi készlet:
+${invText}
 
-            tbody.innerHTML = results.map(r => `
-                <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                    <td class="p-5"><div class="font-bold text-slate-700">${r.name}</div><div class="text-[10px] text-indigo-400 uppercase font-bold">${r.brand}</div></td>
-                    <td class="p-5 text-center font-black text-2xl text-slate-700">${r.total}</td>
-                    <td class="p-5 text-center"><div class="font-bold text-emerald-600 bg-emerald-50 rounded-lg py-2 px-4 inline-block">${r.frequency}</div></td>
-                </tr>`).join('') || '<tr><td colspan="3" class="text-center py-12 text-slate-400">Nincs adat.</td></tr>';
-        };
+Fogyasztási statisztika:
+${consText}
 
-        // --- SHOPPING & SEARCH ---
-        window.handleShoppingSearch = () => {
-            const query = searchInput.value.toLowerCase().trim();
-            if (!query) { searchResults.innerHTML = ''; return; }
-            const results = dbData.masterItems.filter(i => (i.name && i.name.toLowerCase().includes(query)) || (i.brand && i.brand.toLowerCase().includes(query))).slice(0, 5);
-            searchResults.innerHTML = results.map(i => `
-                <div onclick="openShoppingQtyModal('${i.id}')" class="p-4 border-b border-slate-50 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors">
-                    <div><span class="font-bold text-slate-700">${i.name}</span> <span class="text-[10px] text-slate-400 font-bold uppercase ml-2">${i.brand}</span></div>
-                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
-                </div>`).join('');
-            lucide.createIcons();
-        };
+SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA: 
+- CSAK és KIZÁRÓLAG a listát add vissza! 
+- Formátum szigorúan: "- [Terméknév] ([Márka, ha van]) - [Mennyiség] db"
+- TILOS bármilyen bevezető szöveg (pl. "Itt a lista:" vagy "A statisztika alapján...").
+- TILOS bármilyen lezáró szöveg.
+- TILOS megindokolni, hogy mit miért ajánlasz.
+- Ha nincs semmi ajánlat, csak annyit írj: "Jelenleg mindenből van elég."`;
 
-        window.openShoppingQtyModal = (mId) => {
-            currentShoppingItem = dbData.masterItems.find(i => i.id === mId);
-            if(!currentShoppingItem) return;
-            const matches = dbData.inventory.filter(i => i.status === 'active' && i.brand === currentShoppingItem.brand && i.name === currentShoppingItem.name);
-            const count = matches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
-            document.getElementById('sqm-name').value = currentShoppingItem.name;
-            document.getElementById('sqm-brand').value = currentShoppingItem.brand || '';
-            document.getElementById('sqm-weight').value = currentShoppingItem.weight || '-';
-            document.getElementById('sqm-expiry').value = currentShoppingItem.expiryDays || ''; 
-            document.getElementById('sqm-req').value = 1;
-            document.getElementById('sqm-home').value = 0; 
-            document.getElementById('sqm-current-home').innerText = count; 
-            const modal = document.getElementById('shopping-qty-modal');
-            modal.classList.remove('hidden'); modal.classList.add('flex');
-        };
+            try {
+                const data = await fetchWithRetry('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                }, 5);
+                container.innerHTML = `<div class="bg-white p-6 rounded-2xl border border-indigo-100 prose prose-indigo max-w-none shadow-sm text-sm">${marked.parse(data.reply)}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="p-6 text-rose-500 bg-rose-50 rounded-2xl">A hálózat nagyon leterhelt, nem sikerült legenerálni a listát. Kérlek próbáld újra pár perc múlva.</div>`;
+            } finally {
+                isAiLoading = false;
+            }
+        };
 
-        window.closeShoppingQtyModal = () => document.getElementById('shopping-qty-modal').classList.add('hidden');
+        // --- STATISZTIKA & NAPLÓZÁS ---
+        window.logConsumption = (brand, name, quantity) => {
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0];
+            const monthStr = dateStr.slice(0, 7);
+            dbData.consumption.push({ id: generateId(), brand, name, quantity, date: dateStr, month: monthStr, timestamp: today.toISOString() });
+            saveItems(); 
+        };
 
-        window.confirmShoppingAdd = () => {
-            const name = document.getElementById('sqm-name').value.trim();
-            const brand = document.getElementById('sqm-brand').value.trim() || 'Nincs';
-            const req = parseInt(document.getElementById('sqm-req').value) || 1;
-            const home = parseInt(document.getElementById('sqm-home').value) || 0;
-            if(!name) return;
-            dbData.shoppingList.push({ id: generateId(), name, brand, requiredQuantity: req, status: 'pending', addedAt: new Date().toISOString() });
-            syncInventoryCount(brand, name, home); 
-            saveItems(); closeShoppingQtyModal();
-            searchInput.value = ''; searchResults.innerHTML = '';
-        };
+        window.logPurchase = (brand, name) => {
+            const now = new Date();
+            dbData.purchaseHistory.push({
+                brand: brand || "Nincs",
+                name: name,
+                date: now.toISOString()
+            });
+        };
 
-        window.syncInventoryCount = (brand, name, targetQty) => {
-            const b = (brand || '').toLowerCase().trim();
-            const n = (name || '').toLowerCase().trim();
-            let matches = dbData.inventory.filter(i => i.status === 'active' && (i.brand || '').toLowerCase().trim() === b && (i.name || '').toLowerCase().trim() === n);
-            let total = matches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
-            if (total === targetQty) return;
-            if (total < targetQty) {
-                const diff = targetQty - total;
-                logPurchase(brand, name);
-                dbData.inventory.push({ id: generateId(), brand: brand || "Nincs", name: name, quantity: diff, status: 'active', expiryDate: "-", addedAt: new Date().toISOString() });
+        window.renderStats = () => {
+            const tbody = document.getElementById('stats-tbody');
+            if (!tbody) return;
+
+            const grouped = {};
+            (dbData.purchaseHistory || []).forEach(p => {
+                const key = `${(p.brand || '').toLowerCase()}:::${(p.name || '').toLowerCase()}`;
+                if (!grouped[key]) grouped[key] = { brand: p.brand, name: p.name, dates: [] };
+                grouped[key].dates.push(new Date(p.date));
+            });
+
+            const results = Object.values(grouped).map(item => {
+                item.dates.sort((a, b) => a - b);
+                let frequencyText = "Nincs elég adat";
+                let avgDays = 0;
+
+                if (item.dates.length > 1) {
+                    const first = item.dates[0];
+                    const last = item.dates[item.dates.length - 1];
+                    const totalDays = (last - first) / (1000 * 60 * 60 * 24);
+                    avgDays = Math.round(totalDays / (item.dates.length - 1));
+                    frequencyText = avgDays === 0 ? "Naponta veszed" : `Átlagosan ${avgDays} naponta`;
+                }
+
+                return {
+                    brand: item.brand,
+                    name: item.name,
+                    total: item.dates.length,
+                    frequency: frequencyText,
+                    avg: avgDays
+                };
+            }).sort((a, b) => b.total - a.total);
+
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center py-12 text-slate-400 font-medium">Még nincsenek rögzített vásárlások.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = results.map(r => `
+                <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                    <td class="p-5">
+                        <div class="font-bold text-slate-700 text-base">${r.name}</div>
+                        <div class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-0.5">${r.brand}</div>
+                    </td>
+                    <td class="p-5 text-center">
+                        <span class="font-bold text-2xl text-slate-700">${r.total} <span class="text-sm font-medium text-slate-400">alkalom</span></span>
+                    </td>
+                    <td class="p-5 text-center">
+                        <div class="font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-lg py-2 px-4 inline-block shadow-sm">
+                            ${r.frequency}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        };
+
+        // --- BEVÁSÁRLÓLISTA ÉS MESTER ADATBÁZIS ---
+        window.handleShoppingSearch = () => {
+            const query = searchInput.value.toLowerCase().trim();
+            if (!query) { searchResults.innerHTML = ''; return; }
+            const results = dbData.masterItems.filter(i => (i.name && i.name.toLowerCase().includes(query)) || (i.brand && i.brand.toLowerCase().includes(query))).slice(0, 5);
+            
+            searchResults.innerHTML = results.length ? results.map(i => `
+                <div onclick="openShoppingQtyModal('${i.id}')" class="p-4 border-b border-slate-50 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors">
+                    <div>
+                        <span class="font-bold text-slate-700">${i.name}</span> 
+                        <span class="text-[10px] text-slate-400 font-bold uppercase ml-2">${i.brand} (${i.weight})</span>
+                    </div>
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400"></i>
+                </div>`).join('') : `<div class="p-6 text-center text-slate-500 text-sm">Nincs ilyen termék. <button onclick="addNewMasterItem('${query}')" class="text-indigo-600 font-bold underline">Új felvétele</button></div>`;
+            lucide.createIcons();
+        };
+
+        window.openShoppingQtyModal = (mId) => {
+            currentShoppingItem = dbData.masterItems.find(i => i.id === mId);
+            if(!currentShoppingItem) return;
+            
+            const activeMatches = dbData.inventory.filter(i => i.status === 'active' && i.brand === currentShoppingItem.brand && i.name === currentShoppingItem.name);
+            const currentCount = activeMatches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
+            
+            document.getElementById('sqm-name').value = currentShoppingItem.name;
+            document.getElementById('sqm-brand').value = currentShoppingItem.brand || '';
+            document.getElementById('sqm-weight').value = currentShoppingItem.weight || '-';
+            document.getElementById('sqm-expiry').value = currentShoppingItem.expiryDays || ''; 
+            document.getElementById('sqm-req').value = 1;
+            document.getElementById('sqm-home').value = 0; 
+            
+            document.getElementById('sqm-current-home').innerText = currentCount; 
+            
+            const modal = document.getElementById('shopping-qty-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeShoppingQtyModal = () => {
+            document.getElementById('shopping-qty-modal').classList.add('hidden');
+            document.getElementById('shopping-qty-modal').classList.remove('flex');
+            currentShoppingItem = null;
+        };
+
+        window.confirmShoppingAdd = () => {
+            const name = document.getElementById('sqm-name').value.trim();
+            const brand = document.getElementById('sqm-brand').value.trim() || 'Nincs';
+            const weight = document.getElementById('sqm-weight').value.trim() || '-';
+            const expiryDaysRaw = document.getElementById('sqm-expiry').value.trim();
+            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
+            const reqQty = parseInt(document.getElementById('sqm-req').value) || 1;
+            const homeQty = parseInt(document.getElementById('sqm-home').value) || 0;
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+
+            const existingMasterIdx = dbData.masterItems.findIndex(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
+            if (existingMasterIdx === -1) {
+                dbData.masterItems.push({ id: generateId(), brand, name, weight, expiryDays });
+            } else {
+                dbData.masterItems[existingMasterIdx].weight = weight;
+                dbData.masterItems[existingMasterIdx].expiryDays = expiryDays;
+            }
+
+            dbData.shoppingList.push({ 
+                id: generateId(), name, brand, weight, expiryDays,
+                requiredQuantity: reqQty, status: 'pending', addedAt: new Date().toISOString() 
+            });
+
+            syncInventoryCount(brand, name, homeQty); 
+            saveItems(); 
+            closeShoppingQtyModal();
+            searchInput.value = ''; searchResults.innerHTML = '';
+        };
+
+        window.openShoppingEditModal = (id) => {
+            const item = dbData.shoppingList.find(i => i.id === id);
+            if(!item) return;
+            currentEditShoppingId = id;
+            
+            document.getElementById('sem-name').value = item.name;
+            document.getElementById('sem-brand').value = item.brand || '';
+            document.getElementById('sem-weight').value = item.weight || '-';
+            document.getElementById('sem-expiry').value = item.expiryDays || '';
+            document.getElementById('sem-req').value = item.requiredQuantity || 1;
+            
+            const modal = document.getElementById('shopping-edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeShoppingEditModal = () => {
+            document.getElementById('shopping-edit-modal').classList.add('hidden');
+            document.getElementById('shopping-edit-modal').classList.remove('flex');
+            currentEditShoppingId = null;
+        };
+
+        window.confirmShoppingEdit = () => {
+            if(!currentEditShoppingId) return;
+            const name = document.getElementById('sem-name').value.trim();
+            const brand = document.getElementById('sem-brand').value.trim() || 'Nincs';
+            const weight = document.getElementById('sem-weight').value.trim() || '-';
+            const expiryDaysRaw = document.getElementById('sem-expiry').value.trim();
+            const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
+            const reqQty = parseInt(document.getElementById('sem-req').value) || 1;
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+
+            const existingMasterIdx = dbData.masterItems.findIndex(m => m.name.toLowerCase() === name.toLowerCase() && (m.brand || '').toLowerCase() === brand.toLowerCase());
+            if (existingMasterIdx === -1) {
+                dbData.masterItems.push({ id: generateId(), brand, name, weight, expiryDays });
+            } else {
+                dbData.masterItems[existingMasterIdx].weight = weight;
+                dbData.masterItems[existingMasterIdx].expiryDays = expiryDays;
+            }
+
+            const sIdx = dbData.shoppingList.findIndex(s => s.id === currentEditShoppingId);
+            if(sIdx > -1) {
+                dbData.shoppingList[sIdx] = { ...dbData.shoppingList[sIdx], name, brand, weight, expiryDays, requiredQuantity: reqQty };
+            }
+
+            saveItems();
+            closeShoppingEditModal();
+        };
+
+        window.syncInventoryCount = (brand, name, targetQty) => {
+            const b = (brand || '').toLowerCase().trim();
+            const n = (name || '').toLowerCase().trim();
+            let matches = dbData.inventory.filter(i => i.status === 'active' && (i.brand || '').toLowerCase().trim() === b && (i.name || '').toLowerCase().trim() === n);
+            let currentTotal = matches.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
+
+            if (currentTotal === targetQty) return;
+
+            if (currentTotal < targetQty) {
+                const diff = targetQty - currentTotal;
+                
+                logPurchase(brand, name); // ÚJ
+                
+                dbData.inventory.push({
+                    id: generateId(), brand: brand || "Nincs", name: name,
+                    quantity: diff, initialQuantity: diff, expiryDate: "-", status: 'active', addedAt: new Date().toISOString()
+                });
+            } else {
+                let diff = currentTotal - targetQty;
+                
+                logConsumption(brand || "Nincs", name, diff);
+
+                matches.sort((a, b) => {
+                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                    return dateA - dateB;
+                });
+
+                for (let item of matches) {
+                    if (diff <= 0) break;
+                    let itemQty = Number(item.quantity) || 0;
+                    if (itemQty <= diff) {
+                        item.quantity = 0; item.status = 'consumed'; item.consumedAt = new Date().toISOString();
+                        diff -= itemQty;
+                    } else {
+                        item.quantity = itemQty - diff;
+                        diff = 0;
+                    }
+                }
+            }
+        };
+
+        function renderShoppingList() {
+            const container = document.getElementById('shopping-list-container');
+            if (!container) return;
+
+            const pending = dbData.shoppingList.filter(i => i.status === 'pending');
+            const waiting = dbData.shoppingList.filter(i => i.status === 'waiting');
+            const done = dbData.shoppingList.filter(i => i.status === 'done');
+            
+            let html = '<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Megvásárolandó</h3>';
+            html += pending.map(i => `
+                <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl mb-2 shadow-sm hover:border-indigo-200 transition-colors">
+                    <div class="flex items-center gap-4">
+                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors" title="Megvettem (Átkerül a Hozzáadás fülre)"><i data-lucide="circle" class="w-7 h-7"></i></button>
+                        <div>
+                            <div class="font-bold text-slate-700 text-lg leading-tight">${i.name} <span class="text-indigo-500 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                            <div class="text-[10px] text-indigo-400 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button onclick="setShoppingStatus('${i.id}', 'waiting')" class="p-2 text-amber-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-all" title="Nem volt a boltban (Várólista)"><i data-lucide="clock" class="w-5 h-5"></i></button>
+                        <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                        <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                </div>`).join('') || '<div class="text-sm text-slate-400 italic px-2">Nincs megvásárolandó tétel.</div>';
+
+            if (waiting.length) {
+                html += '<h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mt-10 mb-4 px-1">Hiánycikk (Várólista)</h3>';
+                html += waiting.map(i => `
+                    <div class="flex items-center justify-between p-4 bg-amber-50/50 border border-amber-100 rounded-2xl mb-2 shadow-sm hover:border-amber-200 transition-colors">
+                        <div class="flex items-center gap-4 opacity-75">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-amber-400 hover:text-amber-600 transition-colors" title="Újra listára teszem"><i data-lucide="rotate-ccw" class="w-6 h-6"></i></button>
+                            <div>
+                                <div class="font-bold text-amber-900 text-lg leading-tight">${i.name} <span class="text-amber-600 ml-1 text-base">(${i.requiredQuantity || 1} db)</span></div>
+                                <div class="text-[10px] text-amber-600 font-bold uppercase mt-1">${i.brand} • ${i.weight}</div>
+                            </div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="setShoppingStatus('${i.id}', 'done')" class="p-2 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all" title="Sikerült megvenni"><i data-lucide="check-circle-2" class="w-5 h-5"></i></button>
+                            <button onclick="openShoppingEditModal('${i.id}')" class="p-2 text-amber-400 hover:text-amber-600 hover:bg-amber-100 rounded-xl transition-all"><i data-lucide="edit-2" class="w-5 h-5"></i></button>
+                            <button onclick="removeShoppingItem('${i.id}')" class="p-2 text-amber-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>`).join('');
+            }
+
+            if (done.length) {
+                html += '<h3 class="text-xs font-bold text-emerald-500 uppercase tracking-widest mt-10 mb-4 px-1">A kosárban (Hozzáadás fülön várnak)</h3>';
+                html += done.map(i => `
+                    <div class="flex items-center justify-between p-3 bg-emerald-50/50 rounded-2xl mb-1 opacity-70 border border-emerald-100">
+                        <div class="flex items-center gap-3">
+                            <button onclick="setShoppingStatus('${i.id}', 'pending')" class="text-emerald-500 hover:text-amber-500 transition-colors" title="Visszavonás a listára"><i data-lucide="check-circle" class="w-6 h-6"></i></button>
+                            <div class="line-through text-emerald-700 font-medium">${i.name}</div>
+                        </div>
+                        <button onclick="removeShoppingItem('${i.id}')" class="text-emerald-300 hover:text-rose-400" title="Törlés"><i data-lucide="x" class="w-4 h-4"></i></button>
+                    </div>`).join('');
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        window.setShoppingStatus = (id, newStatus) => {
+            const item = dbData.shoppingList.find(i => i.id === id);
+            if (!item) return;
+
+            item.status = newStatus;
+            
+            if (newStatus === 'done') {
+                item.statusUpdatedAt = new Date().toISOString();
+            }
+
+            saveItems();
+        };
+
+        window.removeShoppingItem = (id) => {
+            dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
+            saveItems();
+        };
+
+        // --- MEGVÁSÁROLT TERMÉKEK JÓVÁHAGYÁSA (HOZZÁADÁS FÜL) ---
+        window.renderPurchasedItems = () => {
+            const container = document.getElementById('purchased-items-container');
+            if (!container) return;
+
+            const doneItems = dbData.shoppingList.filter(i => i.status === 'done');
+            
+            if (doneItems.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 italic bg-slate-50 p-6 rounded-2xl border border-slate-100 text-center">Nincs jóváhagyásra váró, megvásárolt termék.</div>';
+                return;
+            }
+
+            container.innerHTML = doneItems.map(i => {
+                let defaultExp = "";
+                if (i.expiryDays && !isNaN(parseInt(i.expiryDays))) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + parseInt(i.expiryDays));
+                    defaultExp = d.toISOString().split('T')[0];
+                }
+
+                return `
+                <div class="bg-white p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col md:flex-row gap-4 items-end md:items-center">
+                    <div class="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Név</label>
+                            <input type="text" id="pi-name-${i.id}" value="${i.name}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-sm text-slate-700 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Márka</label>
+                            <input type="text" id="pi-brand-${i.id}" value="${i.brand || ''}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Darab</label>
+                            <input type="number" id="pi-qty-${i.id}" value="${i.requiredQuantity || 1}" min="1" class="w-full p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl outline-none text-sm font-black text-emerald-700 focus:ring-2 ring-emerald-100">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Lejárat (opcionális)</label>
+                            <input type="date" id="pi-exp-${i.id}" value="${defaultExp}" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:ring-2 ring-emerald-100">
+                        </div>
+                    </div>
+                    <button onclick="confirmPurchasedItem('${i.id}')" class="w-full md:w-auto px-6 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-md shadow-emerald-100 transition-colors whitespace-nowrap active:scale-95 flex items-center justify-center gap-2">
+                        Kamrába <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `}).join('');
+            lucide.createIcons();
+        };
+
+        window.confirmPurchasedItem = (id) => {
+            const name = document.getElementById(`pi-name-${id}`).value.trim();
+            const brand = document.getElementById(`pi-brand-${id}`).value.trim() || 'Nincs';
+            const qty = parseInt(document.getElementById(`pi-qty-${id}`).value) || 1;
+            const expRaw = document.getElementById(`pi-exp-${id}`).value;
+            const expiryDate = expRaw ? expRaw : '-';
+
+            if(!name) { alert("A név megadása kötelező!"); return; }
+            
+            logPurchase(brand, name); // ÚJ
+
+            dbData.inventory.push({
+                id: generateId(),
+                brand: brand,
+                name: name,
+                quantity: qty,
+                initialQuantity: qty,
+                expiryDate: expiryDate,
+                status: 'active',
+                addedAt: new Date().toISOString()
+            });
+
+            dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
+
+            saveItems();
+        };
+
+        // --- SAJÁT ÉTELEK / RECEPTEK ---
+        window.addRecipe = () => {
+            const name = document.getElementById('new-recipe-name').value.trim();
+            const ingredients = document.getElementById('new-recipe-ingredients').value.trim();
+            if(!name || !ingredients) {
+                alert('Az étel neve és a hozzávalók megadása kötelező!');
+                return;
+            }
+            dbData.recipes.push({ id: generateId(), name, ingredients, addedAt: new Date().toISOString() });
+            document.getElementById('new-recipe-name').value = '';
+            document.getElementById('new-recipe-ingredients').value = '';
+            saveItems();
+        };
+
+        window.deleteRecipe = (id) => {
+            if(!confirm('Biztosan törlöd ezt az ételt a listádról?')) return;
+            dbData.recipes = dbData.recipes.filter(r => r.id !== id);
+            saveItems();
+        };
+
+        window.renderRecipes = () => {
+            const query = (document.getElementById('recipe-search')?.value || '').toLowerCase().trim();
+            const grid = document.getElementById('recipes-grid');
+            if(!grid) return;
+
+            const filtered = dbData.recipes.filter(r => r.name.toLowerCase().includes(query) || r.ingredients.toLowerCase().includes(query));
+
+            grid.innerHTML = filtered.map(r => `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-slate-800 text-lg leading-tight pr-4">${r.name}</h4>
+                        <button onclick="deleteRecipe('${r.id}')" class="text-rose-300 hover:text-rose-500 bg-rose-50 hover:bg-rose-100 p-1.5 rounded-lg transition-colors flex-shrink-0"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="mt-2 flex-1">
+                        <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Hozzávalók & Mennyiségek</p>
+                        <p class="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">${r.ingredients}</p>
+                    </div>
+                </div>
+            `).join('') || '<div class="col-span-full text-center text-slate-400 py-10 font-medium border-2 border-dashed border-slate-200 rounded-3xl">Nincs találat, vagy még nem mentettél el ételt.</div>';
+            lucide.createIcons();
+        };
+
+        // --- RENDERELÉS ÉS LEJÁRAT KEZELÉS ---
+        function cleanupAndRender() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDate = new Date(todayStr);
+            
+            dbData.inventory = dbData.inventory.filter(item => {
+                if (item.status === 'active' && item.expiryDate && item.expiryDate !== "-") {
+                    const expDate = new Date(item.expiryDate);
+                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays >= 10) return false; 
+                }
+                return true;
+            });
+
+            dbData.shoppingList = dbData.shoppingList.filter(item => {
+                if (item.status === 'done' && item.statusUpdatedAt) {
+                    const doneDateStr = new Date(item.statusUpdatedAt).toISOString().split('T')[0];
+                    if (doneDateStr < todayStr) return false; 
+                }
+                return true;
+            });
+
+            window.renderInventoryAndExpired();
+        }
+
+        window.renderInventoryAndExpired = () => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayDate = new Date(todayStr);
+            const activeItems = [];
+            const expiredItems = [];
+
+            dbData.inventory.forEach(item => {
+                if (item.status !== 'active') return;
+                
+                if (item.expiryDate && item.expiryDate !== "-") {
+                    const expDate = new Date(item.expiryDate);
+                    const diffDays = Math.floor((todayDate.getTime() - expDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                    if (item.expiryDate < todayStr) {
+                        item.daysExpired = diffDays;
+                        expiredItems.push(item);
+                    } else {
+                        activeItems.push(item);
+                    }
+                } else {
+                    activeItems.push(item);
+                }
+            });
+
+            renderInventoryList(activeItems);
+            renderExpiredList(expiredItems);
+        };
+
+        function renderInventoryList(activeItems) {
+            const query = document.getElementById('inventory-search')?.value.toLowerCase().trim() || '';
+            const filtered = activeItems.filter(i => (i.name || '').toLowerCase().includes(query) || (i.brand || '').toLowerCase().includes(query));
+
+            inventoryCount.innerText = `Összesen ${activeItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)} tétel a kamrában.`;
+            
+            const grouped = {};
+            filtered.forEach(item => {
+                const key = `${item.brand}:::${item.name}`;
+                if (!grouped[key]) grouped[key] = { brand: item.brand, name: item.name, total: 0, batches: [] };
+                grouped[key].total += Number(item.quantity);
+                grouped[key].batches.push(item);
+            });
+
+            Object.values(grouped).forEach(g => {
+                const expGroups = {};
+                g.batches.forEach(b => {
+                    const exp = b.expiryDate || "-";
+                    if (!expGroups[exp]) expGroups[exp] = { expiryDate: exp, quantity: 0, ids: [] };
+                    expGroups[exp].quantity += Number(b.quantity);
+                    expGroups[exp].ids.push(b.id);
+                });
+                g.mergedBatches = Object.values(expGroups).sort((a, b) => {
+                    const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                    const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                    return dateA - dateB;
+                });
+            });
+
+            inventoryGrid.innerHTML = Object.values(grouped).map((g, idx) => {
+                const allIds = g.batches.map(b => b.id).join(',');
+
+                return `
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">${g.brand}</span>
+                        <div class="flex gap-1">
+                            <button onclick="consumeEarliest('${allIds}')" class="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors" title="Legkorábban lejáróból 1 db fogyasztása">
+                                <i data-lucide="minus" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteAllGrouped('${allIds}')" class="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-500 transition-colors" title="Teljes termék törlése a kamrából">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-lg mb-2">${g.name}</h4>
+                    <div class="mt-auto">
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-3 cursor-pointer group select-none" onclick="toggleDetails('details-${idx}')">
+                            <span class="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl group-hover:bg-indigo-100 transition-colors">${g.total} db</span>
+                            <span class="text-[10px] text-slate-400 font-bold flex items-center gap-1 group-hover:text-indigo-500 transition-colors uppercase tracking-widest">
+                                Részletek <i data-lucide="chevron-down" class="w-3 h-3 group-hover:translate-y-0.5 transition-transform"></i>
+                            </span>
+                        </div>
+                        <div id="details-${idx}" class="hidden mt-3 space-y-2 border-t border-slate-50 pt-3">
+                            ${g.mergedBatches.map(b => {
+                                const expDisplay = b.expiryDate === "-" ? "Nincs lejárat" : b.expiryDate;
+                                const batchIds = b.ids.join(',');
+                                return `
+                                <div class="flex justify-between items-center text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                                    <span class="text-slate-500 font-medium flex items-center gap-1.5">
+                                        <i data-lucide="${b.expiryDate === "-" ? "package-check" : "calendar"}" class="w-3.5 h-3.5 text-slate-400"></i>${expDisplay}
+                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-slate-700 bg-white px-2 py-0.5 rounded shadow-sm">${b.quantity} db</span>
+                                        <button onclick="changeQty('${b.ids[0]}', -1)" class="text-slate-400 hover:text-indigo-600 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="minus" class="w-3 h-3"></i></button>
+                                        <button onclick="deleteMerged('${batchIds}')" class="text-rose-300 hover:text-rose-500 bg-white shadow-sm rounded-md p-1.5 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                                    </div>
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('') || '<div class="col-span-full py-12 text-center text-slate-400 font-medium">Nincs találat a keresésre, vagy a kamra üres.</div>';
+            lucide.createIcons();
+        }
+
+        window.deleteAllGrouped = (idsStr) => {
+            if(!confirm("Biztosan törlöd az összeset ebből a termékből a kamrádból?")) return;
+            const ids = idsStr.split(',').filter(Boolean);
+            dbData.inventory = dbData.inventory.filter(i => !ids.includes(i.id));
+            saveItems();
+        };
+
+        window.deleteMerged = (idsStr) => {
+            const ids = idsStr.split(',').filter(Boolean);
+            dbData.inventory = dbData.inventory.filter(i => !ids.includes(i.id));
+            saveItems();
+        };
+
+        window.consumeEarliest = (idsStr) => {
+            const ids = idsStr.split(',').filter(Boolean);
+            let matches = dbData.inventory.filter(i => ids.includes(i.id) && i.status === 'active');
+            if(matches.length === 0) return;
+            
+            matches.sort((a, b) => {
+                const dateA = a.expiryDate === "-" ? new Date('9999-12-31') : new Date(a.expiryDate || '9999-12-31');
+                const dateB = b.expiryDate === "-" ? new Date('9999-12-31') : new Date(b.expiryDate || '9999-12-31');
+                return dateA - dateB;
+            });
+
+            const earliestItem = matches[0];
+            if (Number(earliestItem.quantity) > 0) {
+                const newQty = Number(earliestItem.quantity) - 1;
+                earliestItem.quantity = newQty;
+                if(newQty === 0) {
+                    earliestItem.status = 'consumed';
+                    earliestItem.consumedAt = new Date().toISOString();
+                }
+                logConsumption(earliestItem.brand || "Nincs", earliestItem.name, 1);
+            }
+        };
+
+        function renderExpiredList(expiredItems) {
+            const grid = document.getElementById('expired-grid');
+            const badge = document.getElementById('expired-badge');
+            
+            if(badge) badge.classList.toggle('hidden', expiredItems.length === 0);
+            if(!grid) return;
+
+            if (expiredItems.length === 0) {
+                grid.innerHTML = '<div class="col-span-full py-20 text-center bg-white border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 font-medium">Nincsenek lejárt termékek. Nagyszerű!</div>';
+                return;
+            }
+
+            grid.innerHTML = expiredItems.map(i => `
+                <div class="bg-rose-50/50 p-5 rounded-2xl border border-rose-100 shadow-sm flex flex-col h-full">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-[10px] font-bold text-rose-500 uppercase tracking-wider">${i.brand}</span>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-lg mb-2">${i.name}</h4>
+                    <div class="mt-auto">
+                        <div class="flex items-center justify-between border-t border-rose-100 pt-3">
+                            <span class="text-sm font-bold bg-rose-100 text-rose-700 px-3 py-1 rounded-xl">${i.quantity} db</span>
+                            <span class="text-[10px] text-rose-500 font-bold flex items-center gap-1 uppercase tracking-widest">
+                                Lejárt: ${i.expiryDate}
+                            </span>
+                        </div>
+                        <p class="text-[10px] text-rose-400 mt-2 text-center font-medium">${Math.max(0, 10 - (i.daysExpired || 0))} nap múlva törlődik</p>
+                        <button onclick="deleteItem('${i.id}')" class="w-full mt-3 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-xl transition-colors shadow-sm">Kidobtam</button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        window.toggleDetails = (id) => {
+            const el = document.getElementById(id);
+            el.classList.toggle('hidden');
+        };
+
+        window.switchTab = (id) => {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(t => t.classList.add('hidden'));
+            
+            const target = document.getElementById(`tab-${id}`);
+            if(target) target.classList.remove('hidden');
+
+            const btns = document.querySelectorAll('.nav-btn');
+            btns.forEach(b => {
+                if(b.classList.contains('text-rose-400')) return; 
+                
+                if(b.dataset.tab === id) {
+                    b.classList.add('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm');
+                    b.classList.remove('text-slate-400', 'hover:bg-slate-50', 'hover:text-slate-600');
+                } else {
+                    b.classList.remove('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm');
+                    b.classList.add('text-slate-400', 'hover:bg-slate-50', 'hover:text-slate-600');
+                }
+            });
+
+            if(id === 'recipes') renderRecipes();
+            if(id === 'stats') renderStats();
+        };
+
+        window.bulkImportMaster = () => {
+            const modal = document.getElementById('import-modal');
+            document.getElementById('import-textarea').value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeImportModal = () => {
+            const modal = document.getElementById('import-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.executeBulkImport = () => {
+            const raw = document.getElementById('import-textarea').value;
+            if (!raw.trim()) return closeImportModal();
+            
+            const lines = raw.split('\n').filter(l => l.trim().length > 0);
+            let count = 0;
+            
+            for (let line of lines) {
+                let brand = "Ismeretlen";
+                let name = "Névtelen";
+                let weight = "-";
+
+                if (line.includes(';')) {
+                    const parts = line.split(';').map(s => s.trim());
+                    if(parts.length >= 2) {
+                        brand = parts[0] || "Ismeretlen";
+                        name = parts[1] || "Névtelen";
+                        weight = parts[2] || "-";
+                    } else continue;
+                } else if (line.includes(':') && line.includes(',')) {
+                    const parts = line.split(',').map(p => p.trim());
+                    
+                    const findValue = (key) => {
+                        const found = parts.find(p => p.toLowerCase().includes(key));
+                        return found ? found.split(':')[1]?.trim() : null;
+                    };
+
+                    brand = findValue('márka') || "Ismeretlen";
+                    name = findValue('név') || "Névtelen";
+                    weight = findValue('tömeg') || findValue('súly') || "-";
+                    
+                    if (name === "Névtelen" && !line.toLowerCase().includes('név:')) continue;
+                } else continue;
+
+                const exists = dbData.masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
+                
+                if (!exists && name !== "Névtelen") {
+                    dbData.masterItems.push({ id: generateId(), brand, name, weight });
+                    count++;
+                }
+            }
+            
+            saveItems();
+            closeImportModal();
+            handleShoppingSearch();
+            alert(`${count} új termék sikeresen hozzáadva az adatbázishoz! (A meglévőeket átugrotta a rendszer).`);
+        };
+
+        window.addNewMasterItem = (initialName) => {
+            currentShoppingItem = null; 
+            document.getElementById('sqm-name').value = initialName || '';
+            document.getElementById('sqm-brand').value = 'Saját';
+            document.getElementById('sqm-weight').value = '-';
+            document.getElementById('sqm-expiry').value = '';
+            document.getElementById('sqm-req').value = 1;
+            document.getElementById('sqm-home').value = 0;
+            document.getElementById('sqm-current-home').innerText = '0';
+            
+            const modal = document.getElementById('shopping-qty-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            searchInput.value = ''; searchResults.innerHTML = '';
+        };
+
+        // --- ÚJ LOGIKA: Szövegfeldolgozó, ami törli a megvásárolt tételt is ---
+        window.parseBtnClick = () => {
+            const text = parseInput.value;
+            const lines = text.split('\n').filter(l => l.trim());
+            for (let line of lines) {
+                const parts = line.split(',').map(p => p.trim());
+                
+                const findValue = (key) => {
+                    const found = parts.find(p => p.toLowerCase().includes(key));
+                    return found ? found.split(':')[1]?.trim() : null;
+                };
+                
+                const brand = findValue('márka') || "Nincs";
+                const name = findValue('név') || line.substring(0, 20);
+                const qty = parseInt(findValue('darab')) || 1;
+                const weight = findValue('tömeg') || findValue('súly') || "-";
+                
+                const expiryRaw = findValue('lejárat');
+                let expiryDate = "-";
+                if (expiryRaw) {
+                    if (expiryRaw.includes('nap')) {
+                        const days = parseInt(expiryRaw) || 14;
+                        const d = new Date();
+                        d.setDate(d.getDate() + days);
+                        expiryDate = d.toISOString().split('T')[0];
+                    } else {
+                        expiryDate = expiryRaw;
+                    }
+                }
+
+                // Keresünk egy egyező tételt a bevásárlólistán, ami éppen 'done' státuszú
+                const matchIndex = dbData.shoppingList.findIndex(
+                    s => s.status === 'done' && 
+                         s.name.toLowerCase() === name.toLowerCase() && 
+                         (s.brand || 'Nincs').toLowerCase() === brand.toLowerCase()
+                );
+
+                // Ha találtunk ilyet, töröljük a bevásárlólistáról, így "átvisszük" a kamrába!
+                if (matchIndex > -1) {
+                    dbData.shoppingList.splice(matchIndex, 1);
+                }
+                
+                logPurchase(brand, name); // ÚJ
+
+                dbData.inventory.push({
+                    id: generateId(), brand: brand, name: name, quantity: qty, initialQuantity: qty,
+                    expiryDate: expiryDate, status: 'active', addedAt: new Date().toISOString()
+                });
+
+                const existsInMaster = dbData.masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
+                if (!existsInMaster) {
+                    dbData.masterItems.push({ id: generateId(), brand, name, weight });
+                }
+            }
+            saveItems();
+            parseInput.value = '';
+            switchTab('inventory');
+        };
+
+        document.getElementById('parse-btn').onclick = parseBtnClick;
+        
+        // --- AKCIÓK (PROMOS) LOGIKA ---
+        window.handlePromoTabClick = () => {
+            if (!isPromoAuth) {
+                document.getElementById('promo-auth-modal').classList.remove('hidden');
+                document.getElementById('promo-auth-modal').classList.add('flex');
             } else {
-                let diff = total - targetQty;
-                logConsumption(brand || "Nincs", name, diff);
-                matches.forEach(item => {
-                    if (diff <= 0) return;
-                    let iQty = Number(item.quantity) || 0;
-                    if (iQty <= diff) { item.quantity = 0; item.status = 'consumed'; diff -= iQty; }
-                    else { item.quantity = iQty - diff; diff = 0; }
-                });
+                switchTab('promos');
             }
         };
 
-        function renderShoppingList() {
-            const container = document.getElementById('shopping-list-container');
+        window.closePromoAuthModal = () => {
+            document.getElementById('promo-auth-modal').classList.add('hidden');
+            document.getElementById('promo-auth-modal').classList.remove('flex');
+        };
+
+        window.checkPromoAuth = () => {
+            if (document.getElementById('promo-password').value === '42') {
+                isPromoAuth = true;
+                closePromoAuthModal();
+                switchTab('promos');
+                document.getElementById('promo-password').value = '';
+            } else {
+                alert('Hibás jelszó!');
+            }
+        };
+
+        window.cleanupOldPromos = () => {
+            if (!dbData.promos) dbData.promos = [];
+            const now = new Date();
+            let changed = false;
+            dbData.promos = dbData.promos.filter(p => {
+                const added = new Date(p.addedAt);
+                let daysUntilThursday = (4 - added.getDay() + 7) % 7;
+                if (daysUntilThursday === 0) daysUntilThursday = 7;
+                let nextThursday = new Date(added);
+                nextThursday.setDate(added.getDate() + daysUntilThursday);
+                nextThursday.setHours(6, 0, 0, 0);
+                
+                if (now >= nextThursday) {
+                    changed = true;
+                    return false;
+                }
+                return true;
+            });
+            if (changed) saveItems();
+        };
+
+        window.renderPromos = () => {
+            const container = document.getElementById('promo-files-container');
             if (!container) return;
-            const pending = dbData.shoppingList.filter(i => i.status === 'pending');
-            container.innerHTML = pending.map(i => `
-                <div class="flex items-center justify-between p-4 bg-white border rounded-2xl shadow-sm">
-                    <div class="flex items-center gap-4">
-                        <button onclick="setShoppingStatus('${i.id}', 'done')" class="text-slate-200 hover:text-emerald-500 transition-colors"><i data-lucide="circle" class="w-7 h-7"></i></button>
-                        <div><div class="font-bold text-slate-700">${i.name} (${i.requiredQuantity} db)</div><div class="text-[10px] text-indigo-400 font-bold uppercase">${i.brand}</div></div>
+            if (!dbData.promos || dbData.promos.length === 0) {
+                container.innerHTML = '<div class="text-sm text-slate-400 italic bg-slate-50 p-6 rounded-2xl border border-slate-100 text-center">Nincs aktív akciós lista feltöltve.</div>';
+                return;
+            }
+            container.innerHTML = dbData.promos.map(p => `
+                <div class="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-indigo-200 transition-colors">
+                    <div class="flex-1 truncate pr-4">
+                        <div class="text-[10px] text-indigo-400 font-bold uppercase mb-1 tracking-widest">Feltöltve: ${new Date(p.addedAt).toLocaleString('hu-HU')}</div>
+                        <div class="text-sm text-slate-700 truncate font-medium">${p.text.substring(0, 100)}...</div>
                     </div>
-                    <button onclick="removeShoppingItem('${i.id}')" class="text-slate-300 hover:text-rose-500 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                </div>`).join('') || '<p class="text-slate-400 italic text-center py-4">Üres a lista.</p>';
-            lucide.createIcons();
-        }
-
-        window.setShoppingStatus = (id, status) => {
-            const item = dbData.shoppingList.find(i => i.id === id);
-            if (item) { item.status = status; if (status === 'done') item.statusUpdatedAt = new Date().toISOString(); saveItems(); }
-        };
-
-        window.removeShoppingItem = (id) => { dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id); saveItems(); };
-
-        window.renderPurchasedItems = () => {
-            const container = document.getElementById('purchased-items-container');
-            if (!container) return;
-            const doneItems = dbData.shoppingList.filter(i => i.status === 'done');
-            container.innerHTML = doneItems.map(i => `
-                <div class="bg-white p-4 rounded-2xl border flex flex-col md:flex-row gap-4 items-center">
-                    <div class="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <input type="text" id="pi-name-${i.id}" value="${i.name}" class="p-2 bg-slate-50 border rounded-xl text-sm font-bold">
-                        <input type="text" id="pi-brand-${i.id}" value="${i.brand || ''}" class="p-2 bg-slate-50 border rounded-xl text-sm" placeholder="Márka">
-                        <input type="number" id="pi-qty-${i.id}" value="${i.requiredQuantity}" class="p-2 bg-emerald-50 border rounded-xl text-sm font-black text-emerald-700">
-                        <input type="date" id="pi-exp-${i.id}" class="p-2 bg-slate-50 border rounded-xl text-sm">
-                    </div>
-                    <button onclick="confirmPurchasedItem('${i.id}')" class="bg-emerald-500 text-white px-6 py-2 rounded-xl font-bold shadow-md shadow-emerald-100">Kamrába</button>
-                </div>`).join('') || '<p class="text-center text-slate-400 text-sm">Nincs jóváhagyásra váró termék.</p>';
-        };
-
-        window.confirmPurchasedItem = (id) => {
-            const name = document.getElementById(`pi-name-${id}`).value;
-            const brand = document.getElementById(`pi-brand-${id}`).value || 'Nincs';
-            const qty = parseInt(document.getElementById(`pi-qty-${id}`).value) || 1;
-            const exp = document.getElementById(`pi-exp-${id}`).value || '-';
-            logPurchase(brand, name);
-            dbData.inventory.push({ id: generateId(), brand, name, quantity: qty, initialQuantity: qty, expiryDate: exp, status: 'active', addedAt: new Date().toISOString() });
-            dbData.shoppingList = dbData.shoppingList.filter(i => i.id !== id);
-            saveItems();
-        };
-
-        // --- INVENTORY RENDER ---
-        window.renderInventoryAndExpired = () => {
-            const grid = document.getElementById('inventory-grid');
-            const active = dbData.inventory.filter(i => i.status === 'active');
-            inventoryCount.innerText = `Összesen ${active.reduce((a,b)=>a+Number(b.quantity),0)} tétel.`;
-            grid.innerHTML = active.map(i => `
-                <div class="bg-white p-5 rounded-2xl border shadow-sm flex flex-col h-full">
-                    <div class="flex justify-between mb-2"><span class="text-[10px] font-bold text-indigo-500 uppercase">${i.brand}</span></div>
-                    <h4 class="font-bold text-slate-800 text-lg mb-2">${i.name}</h4>
-                    <div class="mt-auto flex justify-between items-center border-t pt-3">
-                        <span class="text-sm font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl">${i.quantity} db</span>
-                        <div class="text-[10px] text-slate-400 uppercase">${i.expiryDate === "-" ? "Nincs lejárat" : i.expiryDate}</div>
-                    </div>
-                </div>`).join('') || '<p class="col-span-full text-center text-slate-400 py-10 italic">Üres a kamra.</p>';
+                    <button onclick="deletePromo('${p.id}')" class="p-2.5 bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all shadow-sm"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                </div>
+            `).join('');
             lucide.createIcons();
         };
 
-        window.switchTab = (id) => {
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
-            document.getElementById(`tab-${id}`).classList.remove('hidden');
-            document.querySelectorAll('.nav-btn').forEach(b => {
-                if(b.dataset.tab === id) { b.classList.add('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm'); b.classList.remove('text-slate-400'); }
-                else { b.classList.remove('bg-indigo-50', 'text-indigo-700', 'font-bold', 'shadow-sm'); b.classList.add('text-slate-400'); }
-            });
-            if(id === 'recipes') renderRecipes();
-            if(id === 'stats') renderStats();
-            if(id === 'promotions') renderPromoList();
-        };
-
-        function cleanupAndRender() {
-            const today = new Date().toISOString().split('T')[0];
-            dbData.inventory = dbData.inventory.filter(i => !(i.status === 'active' && i.expiryDate !== "-" && i.expiryDate < today && (new Date()-new Date(i.expiryDate))/86400000 >= 10));
-            window.renderInventoryAndExpired();
-        }
-
-        window.addRecipe = () => {
-            const name = document.getElementById('new-recipe-name').value.trim();
-            const ing = document.getElementById('new-recipe-ingredients').value.trim();
-            if(!name || !ing) return;
-            dbData.recipes.push({ id: generateId(), name, ingredients: ing });
+        window.deletePromo = (id) => {
+            if(!confirm('Biztosan törlöd ezt az akciós listát?')) return;
+            dbData.promos = dbData.promos.filter(p => p.id !== id);
             saveItems();
-            document.getElementById('new-recipe-name').value = '';
-            document.getElementById('new-recipe-ingredients').value = '';
+            renderPromos();
         };
 
-        window.renderRecipes = () => {
-            const grid = document.getElementById('recipes-grid');
-            if(!grid) return;
-            grid.innerHTML = dbData.recipes.map(r => `
-                <div class="bg-white p-5 rounded-2xl border shadow-sm">
-                    <h4 class="font-bold text-slate-800 mb-2">${r.name}</h4>
-                    <p class="text-sm text-slate-500 mb-4 h-20 overflow-y-auto">${r.ingredients}</p>
-                    <button onclick="deleteRecipe('${r.id}')" class="text-rose-400 text-xs font-bold hover:text-rose-600">Törlés</button>
-                </div>`).join('');
+        window.analyzeAndSavePromos = async () => {
+            const text = document.getElementById('promo-input-text').value.trim();
+            if (!text) { alert('Kérlek írj be vagy másolj be akciós szöveget!'); return; }
+            if (isAiLoading) return;
+            
+            // Mentés
+            if(!dbData.promos) dbData.promos = [];
+            dbData.promos.push({ id: generateId(), text: text, addedAt: new Date().toISOString() });
+            saveItems();
+            renderPromos();
+            document.getElementById('promo-input-text').value = '';
+
+            // AI Elemzés
+            isAiLoading = true;
+            const resContainer = document.getElementById('promo-ai-response');
+            resContainer.classList.remove('hidden');
+            resContainer.innerHTML = `<div class="p-6 text-center animate-pulse text-indigo-500 font-bold">Az AI elemzi az akciókat a készleted és a listád alapján...</div>`;
+
+            const activeItems = dbData.inventory.filter(i => i.status === 'active');
+            const inv = activeItems.map(i => `${i.brand} ${i.name}`).join(', ');
+            const shop = dbData.shoppingList.filter(s => s.status === 'pending').map(s => s.name).join(', ');
+            const history = dbData.purchaseHistory.slice(-20).map(h => h.name).join(', ');
+
+            const prompt = `Itt egy akciós lista szövege: "${text}".\nA kamrámban ezek vannak: ${inv}.\nA bevásárlólistámon ezek vannak: ${shop}.\nEzeket szoktam venni: ${history}.\n\nKérlek, listázd ki:\n1. MI VAN A BEVÁSÁRLÓLISTÁMON ÉS MOST AKCIÓS? (Ezt emeld ki nagyon!)\n2. Mik azok az akciók, amikből érdemes lenne venni, mert szoktuk venni vagy fogytán van a kamrában?\n3. Egyéb jó ajánlatok ebből a szövegből. Formázd átláthatóan Markdownnal!`;
+
+            try {
+                const data = await fetchWithRetry('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                }, 5);
+                resContainer.innerHTML = marked.parse(data.reply);
+            } catch (e) {
+                resContainer.innerHTML = `<span class="text-rose-500 font-bold">Hiba történt az elemzés során.</span>`;
+            } finally {
+                isAiLoading = false;
+            }
         };
 
-        window.deleteRecipe = (id) => { dbData.recipes = dbData.recipes.filter(r => r.id !== id); saveItems(); };
+        window.askPromoAi = async () => {
+            const q = document.getElementById('promo-chat-query').value.trim();
+            if (!q || isAiLoading) return;
+            if (!dbData.promos || dbData.promos.length === 0) {
+                alert('Nincs feltöltött akciós lista, amiből kérdezhetnél!');
+                return;
+            }
+            
+            isAiLoading = true;
+            const resContainer = document.getElementById('promo-chat-response');
+            resContainer.classList.remove('hidden');
+            resContainer.innerHTML = `<div class="text-center animate-pulse text-indigo-500 font-medium">Gondolkodom...</div>`;
 
-        window.parseBtnClick = () => {
-            const text = parseInput.value;
-            const lines = text.split('\n').filter(l => l.trim());
-            lines.forEach(line => {
-                const parts = line.split(',').map(p => p.trim());
-                const brand = parts.find(p=>p.toLowerCase().includes('márka'))?.split(':')[1]?.trim() || "Nincs";
-                const name = parts.find(p=>p.toLowerCase().includes('név'))?.split(':')[1]?.trim() || line.substring(0,20);
-                const qty = parseInt(parts.find(p=>p.toLowerCase().includes('darab'))?.split(':')[1]) || 1;
-                logPurchase(brand, name);
-                dbData.inventory.push({ id: generateId(), brand, name, quantity: qty, status: 'active', addedAt: new Date().toISOString(), expiryDate: "-" });
-            });
-            saveItems(); parseInput.value = ''; switchTab('inventory');
+            const allPromos = dbData.promos.map(p => p.text).join('\n---\n');
+            const prompt = `Az alábbi akciós újságok szövegei alapján válaszolj:\n${allPromos}\n\nKérdés: ${q}`;
+
+            try {
+                const data = await fetchWithRetry('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                }, 5);
+                resContainer.innerHTML = marked.parse(data.reply);
+                document.getElementById('promo-chat-query').value = '';
+            } catch (e) {
+                resContainer.innerHTML = `<span class="text-rose-500 font-bold">Hiba történt a válaszadás során.</span>`;
+            } finally {
+                isAiLoading = false;
+            }
         };
 
-        document.getElementById('parse-btn').onclick = parseBtnClick;
-        loadItems();
-    </script>
+        loadItems();
+    </script>
 </body>
 </html>
