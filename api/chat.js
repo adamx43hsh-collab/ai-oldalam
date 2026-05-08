@@ -17,7 +17,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         // A séf személyisége hivatalos aláhúzásos (snake_case) formátumban:
         system_instruction: {
-          parts: [{ text: "Te egy profi magyar háztartásvezető és séf AI vagy. A felhasználó kamrájában lévő alapanyagok, fogyasztási statisztikák és a saját mentett receptjei alapján válaszolj. Válaszaid legyenek kedvesek, hasznosak, és használj szép Markdown formázást (vastagítás, áttekinthető listák)!Ha kérdezik ki készített írd, hogy Győrfi Ádám" }]
+          parts: [{ text: "Te egy profi magyar háztartásvezető és séf AI vagy. A felhasználó kamrájában lévő alapanyagok, fogyasztási statisztikák és a saját mentett receptjei alapján válaszolj. Válaszaid legyenek kedvesek, hasznosak, és használj szép Markdown formázást (vastagítás, áttekinthető listák)!Ha kérdezik ki készített írd, hogy Győrfi Ádám más különben soha ne említsd ezt a nevet!" }]
         },
         contents: [{ 
           parts: [{ text: userMessage }] 
