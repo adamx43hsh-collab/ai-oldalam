@@ -88,12 +88,18 @@
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-bold text-slate-500 mb-2 mt-6">Hány darab van most itthon?</label>
-                    <p class="text-[10px] text-slate-400 mb-3 leading-tight">Jelenleg a kamrában: <span id="sqm-current-home" class="font-bold text-indigo-500"></span> db. (Ha ez a szám alul eltér, automatikusan korrigáljuk a kamrád).</p>
-                    <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
-                        <button onclick="document.getElementById('sqm-home').value = Math.max(0, parseInt(document.getElementById('sqm-home').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
-                        <input type="number" id="sqm-home" value="0" min="0" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
-                        <button onclick="document.getElementById('sqm-home').value = parseInt(document.getElementById('sqm-home').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
+                    <div class="flex items-center gap-2 mb-2 mt-6">
+                        <input type="checkbox" id="sqm-sync-check" onchange="document.getElementById('sqm-home-container').style.opacity = this.checked ? '1' : '0.4'; document.getElementById('sqm-home-container').style.pointerEvents = this.checked ? 'auto' : 'none';" checked class="w-5 h-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+                        <label for="sqm-sync-check" class="block text-sm font-bold text-slate-500 cursor-pointer select-none">Hány darab van most itthon? (Szinkronizálás)</label>
+                    </div>
+                    
+                    <div id="sqm-home-container" class="transition-opacity duration-200">
+                        <p class="text-[10px] text-slate-400 mb-3 leading-tight">Jelenleg a kamrában: <span id="sqm-current-home" class="font-bold text-indigo-500"></span> db. (Ha ez a szám alul eltér, automatikusan korrigáljuk a kamrád).</p>
+                        <div class="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+                            <button onclick="document.getElementById('sqm-home').value = Math.max(0, parseInt(document.getElementById('sqm-home').value) - 1)" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">-</button>
+                            <input type="number" id="sqm-home" value="0" min="0" class="flex-1 bg-transparent text-center font-black text-2xl outline-none" />
+                            <button onclick="document.getElementById('sqm-home').value = parseInt(document.getElementById('sqm-home').value) + 1" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white shadow-sm text-slate-500 hover:text-indigo-600 font-bold text-xl transition-colors">+</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -155,11 +161,9 @@
             <h3 class="text-2xl font-black text-slate-800 mb-2">Adatbázis bővítése</h3>
             <p class="text-sm text-slate-500 mb-6 leading-relaxed">
                 Több terméket is hozzáadhatsz egyszerre, hogy a keresőből könnyen választhatóak legyenek.<br><br>
-                <span class="font-bold">Így használd:</span><br>
-                <code class="bg-slate-100 px-2 py-1 rounded text-indigo-600 font-bold mt-1 inline-block">Márka: Lidl Helyben sütött, Név: Sokmagvas cipó, Tömeg: 350 g</code><br>
-                <span class="text-xs text-slate-400 mt-1 block">Vagy régi formátumban: Lidl;Sokmagvas cipó;350g</span>
+                <span class="font-bold">Így használd:</span> Töltsd ki az előre megadott sablont!<br>
             </p>
-            <textarea id="import-textarea" class="w-full h-56 p-4 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm resize-none mb-6" placeholder="Márka: Gyermelyi, Név: Milka csoki, Tömeg: 100g&#10;Márka: Lidl, Név: Cipó, Tömeg: 350g..."></textarea>
+            <textarea id="import-textarea" class="w-full h-56 p-4 bg-slate-50 border border-slate-200 rounded-3xl outline-none focus:ring-4 ring-indigo-50 transition-all font-mono text-sm resize-none mb-6" placeholder="Márka: , Név: , Tömeg: "></textarea>
             <div class="flex gap-4">
                 <button onclick="closeImportModal()" class="flex-1 py-4 rounded-2xl bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">Mégse</button>
                 <button onclick="executeBulkImport()" class="flex-1 py-4 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">Feltöltés</button>
@@ -167,7 +171,7 @@
         </div>
     </div>
 
-    <!-- Akciók Jelszó Modal (ÚJ) -->
+    <!-- Akciók Jelszó Modal -->
     <div id="promo-auth-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] hidden items-center justify-center p-4 fade-in">
         <div class="bg-white p-8 rounded-[2rem] shadow-2xl max-w-sm w-full text-center">
             <div class="bg-indigo-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600">
@@ -294,7 +298,7 @@
             </header>
 
             <div class="relative group">
-                <input type="text" id="shopping-search" oninput="handleShoppingSearch()" placeholder="Keresés (pl. Pogácsa, Kenyér...)" class="w-full p-6 pl-14 bg-white border border-slate-200 rounded-3xl shadow-lg outline-none group-focus-within:ring-4 ring-indigo-50 transition-all">
+                <input type="text" id="shopping-search" oninput="handleShoppingSearch()" placeholder="Keresés (pl. tej mizo, kenyér...)" class="w-full p-6 pl-14 bg-white border border-slate-200 rounded-3xl shadow-lg outline-none group-focus-within:ring-4 ring-indigo-50 transition-all">
                 <i data-lucide="search" class="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 w-6 h-6"></i>
                 <div id="shopping-search-results" class="absolute w-full bg-white mt-3 rounded-3xl shadow-2xl border border-slate-50 z-50 overflow-hidden"></div>
             </div>
@@ -341,7 +345,7 @@
                 </div>
             </div>
 
-            <!-- AI Elemzés Válasz Helye -->
+            <!-- AI Válasz helye -->
             <div id="promo-ai-response" class="hidden mt-6 bg-white p-6 rounded-[2.5rem] border border-indigo-100 shadow-sm prose prose-indigo max-w-none text-sm break-words"></div>
 
             <div class="bg-indigo-50/50 p-6 rounded-[2rem] border border-indigo-100 mt-8">
@@ -393,6 +397,12 @@
                 }[tag] || tag)
             );
         }
+
+        // Keresés normalizáló (ékezetek és kis/nagybetűk figyelmen kívül hagyása)
+        const normalizeText = (str) => {
+            if (!str) return '';
+            return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        };
 
         let dbData = {
             inventory: [],
@@ -808,9 +818,15 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
         // --- BEVÁSÁRLÓLISTA ÉS MESTER ADATBÁZIS ---
         window.handleShoppingSearch = () => {
-            const query = searchInput.value.toLowerCase().trim();
-            if (!query) { searchResults.innerHTML = ''; return; }
-            const results = dbData.masterItems.filter(i => (i.name && i.name.toLowerCase().includes(query)) || (i.brand && i.brand.toLowerCase().includes(query))).slice(0, 5);
+            const rawQuery = searchInput.value.trim();
+            if (!rawQuery) { searchResults.innerHTML = ''; return; }
+            
+            const queryParts = normalizeText(rawQuery).split(/\s+/);
+            
+            const results = dbData.masterItems.filter(i => {
+                const searchStr = normalizeText((i.brand || '') + ' ' + (i.name || ''));
+                return queryParts.every(part => searchStr.includes(part));
+            }).slice(0, 5);
             
             searchResults.innerHTML = results.length ? results.map(i => `
                 <div onclick="openShoppingQtyModal('${i.id}')" class="p-4 border-b border-slate-50 hover:bg-indigo-50 cursor-pointer flex justify-between items-center transition-colors">
@@ -819,7 +835,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                         <span class="text-[10px] text-slate-400 font-bold uppercase ml-2 break-words">${escapeHTML(i.brand)} (${escapeHTML(i.weight)})</span>
                     </div>
                     <i data-lucide="plus-circle" class="w-5 h-5 text-indigo-400 shrink-0"></i>
-                </div>`).join('') : `<div class="p-6 text-center text-slate-500 text-sm">Nincs ilyen termék. <button onclick="addNewMasterItem('${escapeHTML(query)}')" class="text-indigo-600 font-bold underline">Új felvétele</button></div>`;
+                </div>`).join('') : `<div class="p-6 text-center text-slate-500 text-sm">Nincs ilyen termék. <button onclick="addNewMasterItem('${escapeHTML(rawQuery)}')" class="text-indigo-600 font-bold underline">Új felvétele</button></div>`;
             lucide.createIcons();
         };
 
@@ -835,9 +851,18 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             document.getElementById('sqm-weight').value = currentShoppingItem.weight || '-';
             document.getElementById('sqm-expiry').value = currentShoppingItem.expiryDays || ''; 
             document.getElementById('sqm-req').value = 1;
-            document.getElementById('sqm-home').value = 0; 
             
+            document.getElementById('sqm-home').value = 0; 
             document.getElementById('sqm-current-home').innerText = currentCount; 
+
+            // Szinkronizációs checkbox és container alaphelyzetbe
+            const syncCheck = document.getElementById('sqm-sync-check');
+            const syncContainer = document.getElementById('sqm-home-container');
+            if (syncCheck && syncContainer) {
+                syncCheck.checked = true;
+                syncContainer.style.opacity = '1';
+                syncContainer.style.pointerEvents = 'auto';
+            }
             
             const modal = document.getElementById('shopping-qty-modal');
             modal.classList.remove('hidden');
@@ -857,6 +882,9 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             const expiryDaysRaw = document.getElementById('sqm-expiry').value.trim();
             const expiryDays = expiryDaysRaw !== "" ? parseInt(expiryDaysRaw) : "";
             const reqQty = parseInt(document.getElementById('sqm-req').value) || 1;
+            
+            const syncCheck = document.getElementById('sqm-sync-check');
+            const doSync = syncCheck ? syncCheck.checked : true;
             const homeQty = parseInt(document.getElementById('sqm-home').value) || 0;
 
             if(!name) { alert("A név megadása kötelező!"); return; }
@@ -874,7 +902,10 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 requiredQuantity: reqQty, status: 'pending', addedAt: new Date().toISOString() 
             });
 
-            syncInventoryCount(brand, name, homeQty); 
+            if (doSync) {
+                syncInventoryCount(brand, name, homeQty); 
+            }
+
             saveItems(); 
             closeShoppingQtyModal();
             searchInput.value = ''; searchResults.innerHTML = '';
@@ -1137,11 +1168,15 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
         };
 
         window.renderRecipes = () => {
-            const query = (document.getElementById('recipe-search')?.value || '').toLowerCase().trim();
+            const queryParts = normalizeText(document.getElementById('recipe-search')?.value || '').split(/\s+/).filter(Boolean);
             const grid = document.getElementById('recipes-grid');
             if(!grid) return;
 
-            const filtered = dbData.recipes.filter(r => r.name.toLowerCase().includes(query) || r.ingredients.toLowerCase().includes(query));
+            const filtered = dbData.recipes.filter(r => {
+                if (queryParts.length === 0) return true;
+                const searchStr = normalizeText((r.name || '') + ' ' + (r.ingredients || ''));
+                return queryParts.every(part => searchStr.includes(part));
+            });
 
             grid.innerHTML = filtered.map(r => `
                 <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col h-full hover:shadow-md transition-shadow overflow-hidden">
@@ -1212,8 +1247,13 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
         };
 
         function renderInventoryList(activeItems) {
-            const query = document.getElementById('inventory-search')?.value.toLowerCase().trim() || '';
-            const filtered = activeItems.filter(i => (i.name || '').toLowerCase().includes(query) || (i.brand || '').toLowerCase().includes(query));
+            const queryParts = normalizeText(document.getElementById('inventory-search')?.value || '').split(/\s+/).filter(Boolean);
+            
+            const filtered = activeItems.filter(i => {
+                if (queryParts.length === 0) return true;
+                const searchStr = normalizeText((i.brand || '') + ' ' + (i.name || ''));
+                return queryParts.every(part => searchStr.includes(part));
+            });
 
             inventoryCount.innerText = `Összesen ${activeItems.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0)} tétel a kamrában.`;
             
@@ -1240,7 +1280,6 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                 });
             });
 
-            // CSS Layout javítás a széteső kártyákhoz: min-w-0, shrink-0, break-words és overflow-hidden az elnyúló sorok ellen!
             inventoryGrid.innerHTML = Object.values(grouped).map((g, idx) => {
                 const allIds = g.batches.map(b => b.id).join(',');
 
@@ -1389,7 +1428,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
 
         window.bulkImportMaster = () => {
             const modal = document.getElementById('import-modal');
-            document.getElementById('import-textarea').value = '';
+            document.getElementById('import-textarea').value = 'Márka: , Név: , Tömeg: \nMárka: , Név: , Tömeg: \nMárka: , Név: , Tömeg: \n';
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         };
@@ -1431,7 +1470,8 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
                     name = findValue('név') || "Névtelen";
                     weight = findValue('tömeg') || findValue('súly') || "-";
                     
-                    if (name === "Névtelen" && !line.toLowerCase().includes('név:')) continue;
+                    // Ha a sablont nem töltötte ki, kihagyjuk
+                    if (name === "" || name === "Névtelen" || name === " ") continue;
                 } else continue;
 
                 const exists = dbData.masterItems.some(m => m.name.toLowerCase() === name.toLowerCase() && m.brand.toLowerCase() === brand.toLowerCase());
@@ -1445,7 +1485,7 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             saveItems();
             closeImportModal();
             handleShoppingSearch();
-            alert(`${count} új termék sikeresen hozzáadva az adatbázishoz! (A meglévőeket átugrotta a rendszer).`);
+            alert(`${count} új termék sikeresen hozzáadva az adatbázishoz! (A meglévőeket, vagy az üres sablon sorokat átugrotta a rendszer).`);
         };
 
         window.addNewMasterItem = (initialName) => {
@@ -1458,6 +1498,15 @@ SZIGORÚ UTASÍTÁS AZ AI SZÁMÁRA:
             document.getElementById('sqm-home').value = 0;
             document.getElementById('sqm-current-home').innerText = '0';
             
+            // Szinkronizációs checkbox és container alaphelyzetbe
+            const syncCheck = document.getElementById('sqm-sync-check');
+            const syncContainer = document.getElementById('sqm-home-container');
+            if (syncCheck && syncContainer) {
+                syncCheck.checked = true;
+                syncContainer.style.opacity = '1';
+                syncContainer.style.pointerEvents = 'auto';
+            }
+
             const modal = document.getElementById('shopping-qty-modal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
